@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jujutsu Shenanigans METAMORPHOSIS Final</title>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; user-select: none; }
+        #gameCanvas { display: block; background: #87CEEB; }
+        .menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(5, 5, 12, 0.95); border: 3px solid #005f73; padding: 25px; border-radius: 6px; color: #fff; text-align: center; z-index: 10; width: 360px; box-shadow: 0 0 35px rgba(0, 95, 115, 0.6); }
+        button { background: #005f73; color: #fff; border: 1px solid #94d2bd; padding: 10px; margin: 6px 0; cursor: pointer; width: 100%; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+        button:hover { background: #0a9396; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #fff; pointer-events: none; width: calc(100% - 30px); display: flex; justify-content: space-between; text-shadow: 2px 2px 4px #000; font-size: 16px; z-index: 5;}
+        .hidden { display: none !important; }
+        #flash-alert { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); color: #ff0055; font-size: 70px; font-weight: 900; pointer-events: none; text-shadow: 0 0 20px #000, 0 0 10px #ff0055; opacity: 0; transition: opacity 0.1s; font-family: 'Impact', sans-serif; letter-spacing: 4px; z-index: 8; }
+        #domain-alert { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 45px; font-weight: bold; pointer-events: none; text-shadow: 0 0 15px #000; opacity: 0; text-transform: uppercase; letter-spacing: 6px; z-index: 8; text-align: center;}
+    </style>
+</head>
+<body>
+
+    <div id="flash-alert">BLACK FLASH</div>
+    <div id="domain-alert">DOMAIN EXPANSION</div>
+    
+    <div id="ui">
+        <div>
+            <div id="ui-char" style="font-weight: bold; color: #94d2bd;">CHARACTER: HAKARI</div>
+            <div style="width:220px; height:14px; background:rgba(0,0,0,0.6); border:1px solid #fff; margin: 4px 0;">
+                <div id="hp-bar" style="width:100%; height:100%; background:#00ff00;"></div>
+            </div>
+            <div id="ui-ult">ULTIMATE: 0% [G]</div>
+            <div id="ui-bf" style="color: #ff0055; font-size: 13px;">BF Combo: 0/5 (Ready)</div>
+        </div>
+        <div style="text-align:right; font-family: monospace;">
+            <div id="ui-timer" style="font-size: 18px; color: #ee9b00;">BOSS SPAWN: 6:00</div>
+            <div>STREET KILLS: <span id="ui-kills" style="color:#94d2bd; font-weight:bold;">0</span></div>
+            <div id="ui-clash" style="color: #ffb703; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <div id="main-menu" class="menu">
+        <h1 style="color:#ee9b00; margin-top:0; letter-spacing: 2px;">JJS: ROSTER MAX</h1>
+        <button onclick="showMenu('char-menu')">Switch Sorcerer</button>
+        <button onclick="showMenu('tutorial')">View Commands</button>
+        <button onclick="closeMenus()" style="background:#ae2012; border-color: #e63946;">DEPLOY TO SHINJUKU</button>
+    </div>
+
+    <div id="char-menu" class="menu hidden">
+        <h2 style="color:#94d2bd;">SELECT YOUR SOUL</h2>
+        <div id="char-list" style="max-height: 280px; overflow-y: auto; padding-right: 5px;"></div>
+        <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 10px;">RETURN</button>
+    </div>
+
+    <div id="tutorial" class="menu hidden">
+        <h3 style="margin-top:0;">COMMAND LOG</h3>
+        <p style="text-align:left; font-size:12px; line-height:1.4;">
+            <strong>A / D :</strong> Run Left / Right<br>
+            <strong>W / SPACE :</strong> Jump Airwards<br>
+            <strong>CLICK (M1) :</strong> Basic Strike Range<br>
+            <strong>E / R :</strong> Cursed Techniques<br>
+            <strong>G :</strong> Domain Expansion (At 100% Ult)<br>
+            <strong>Key '0' :</strong> Black Flash Combo System<br><br>
+            <span style="color:#d4a373;"><strong>Naoya Abilities:</strong> E: Projection Dash (24fps Freeze Blitz) | R: High-Speed Counter.</span>
+        </p>
+        <button onclick="showMenu('main-menu')" style="background:#3d5a80;">RETURN</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+// --- CORE AUDIO SYNTHESIZER ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(freq, type, duration, vol=0.1, slideTo=0) {
+    try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        if(slideTo > 0) {
+            osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+        }
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e){}
+}
+
+// --- CONFIG & GLOBAL PARAMETERS ---
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+const GROUND = H - 90;
+
+const CHARS = {
+    naoya:    { col: "#d4a373", domain: "Time-Cell Moon Palace", s1: "Projection Dash", s2: "Frame Break" },
+    hakari:   { col: "#ffb703", domain: "Idle Death Gamble", s1: "Shutter Wall", s2: "Pachinko Ball" },
+    gojo:     { col: "#48cae4", domain: "Unlimited Void", s1: "Lapse Blue", s2: "Reversal Red" },
+    sukuna:   { col: "#9b2226", domain: "Malevolent Shrine", s1: "Dismantle", s2: "Cleave" },
+    toji:     { col: "#212529", domain: "Inverted Arena", s1: "Spear Thrust", s2: "Zero Dash", weapon: "ISOH" },
+    todo:     { col: "#7209b7", domain: "Takada Concert", s1: "Boogie Woogie", s2: "Playful Strike" },
+    mahito:   { col: "#a2d2ff", domain: "Self-Embodiment of Perfection", s1: "Soul Repulsion", s2: "Body Repel Spikes" },
+    higuruma: { col: "#adb5bd", domain: "Deadly Sentencing", s1: "Gavel Strike", s2: "Guilty Verdict" },
+    yuji:     { col: "#fb8500", domain: "Manji Combat", s1: "Divergent Fist", s2: "Knee Strike" },
+    kashimo:  { col: "#ccff33", domain: "Phantom Beast Amber", s1: "Electric Bolt", s2: "Lightning Charge" },
+    hanami:   { col: "#40916c", domain: "Ceremonial Light", s1: "Spike Field", s2: "Root Entangle" },
+    megumi:   { col: "#03045e", domain: "Shadow Garden", s1: "Divine Dog", s2: "Nue Shock" }
+};
+
+let entities = [];
+let particles = [];
+let player;
+let bossInstance = null;
+let camX = 0;
+let shake = 0;
+let bossTimer = 360; 
+let kills = 0;
+let globalFrames = 0;
+let activeDomain = null; 
+
+class Entity {
+    constructor(x, y, type, isBot = false) {
+        this.x = x; this.y = y; this.type = type; this.isBot = isBot;
+        this.w = 40; this.h = 65;
+        this.vx = 0; this.vy = 0;
+        this.hp = 100; this.maxHp = 100; this.ult = 0;
+        this.facing = 1;
+        this.dead = false;
+        this.cooldowns = { s1: 0, s2: 0, m1: 0, blackFlash: 0 };
+        
+        this.bfCount = 0;
+        this.lastBfTime = 0;
+
+        // Custom states
+        this.isJackpot = false;
+        this.jackpotTimer = 0;
+        this.projectionFrames = 0; // Naoya speed state variable
+
+        if (type === 'heian_sukuna') {
+            this.maxHp = 700; this.hp = 700;
+            this.w = 65; this.h = 100;
+        }
+    }
+
+    update() {
+        if (this.dead) return;
+
+        // Hakari Jackpot State Cycle
+        if (this.type === 'hakari' && this.isJackpot) {
+            this.hp = Math.min(100, this.hp + 0.4);
+            this.ult = 100;
+            this.jackpotTimer--;
+            if (this.jackpotTimer <= 0) this.isJackpot = false;
+            if(globalFrames % 3 === 0) spawnPart(this.x + this.w/2, this.y + this.h/2, "#ffffff", 6);
+        }
+
+        // --- NAOYA SPECIFIC KINEMATICS OVERRIDE ---
+        if (this.type === 'naoya' && this.projectionFrames > 0) {
+            this.projectionFrames--;
+            this.vy = 0; // Negate gravity completely during frame movement loop
+            this.vx = this.facing * 18; // Massive speed factor multiplier
+            
+            // Generate visual frame echo trails
+            if (globalFrames % 2 === 0) {
+                spawnPart(this.x + this.w/2, this.y + this.h/2, "rgba(212, 163, 115, 0.4)", 12);
+            }
+            
+            // Hitbox damage check while passing through enemies
+            this.executeSilentHitboxCheck(22, 50);
+        } else {
+            // Basic Standard Gravity Kinematics
+            this.vy += 0.75;
+            this.vx *= 0.84;
+        }
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.y + this.h > GROUND) {
+            this.y = GROUND - this.h;
+            this.vy = 0;
+        }
+
+        if (this.x < 0) this.x = 0;
+        if (this.x > 3000) this.x = 3000;
+
+        Object.keys(this.cooldowns).forEach(k => { if(this.cooldowns[k] > 0) this.cooldowns[k]--; });
+
+        if (this.isBot) this.processAI();
+        else this.processInput();
+    }
+
+    processInput() {
+        if (keys['a']) { this.vx = -5.5; this.facing = -1; }
+        if (keys['d']) { this.vx = 5.5; this.facing = 1; }
+        if ((keys['w'] || keys[' ']) && this.y >= GROUND - this.h) { this.vy = -14; playSound(220, 'triangle', 0.1, 0.05); }
+        if (keys['m1']) this.executeAttack('m1', this.type === 'toji' ? 12 : 8, this.type === 'toji' ? 90 : 65);
+        if (keys['e']) this.executeTechnique1();
+        if (keys['r']) this.executeAttack('s2', 24, 160);
+        if (keys['g'] && this.ult >= 100) this.triggerDomainExpansion();
+        if (keys['0']) this.executeBlackFlashAction();
+    }
+
+    processAI() {
+        let target = null;
+
+        if (bossInstance && !bossInstance.dead) {
+            if (this.type !== 'heian_sukuna') {
+                target = bossInstance; 
+            }
+        }
+
+        if (!target) {
+            let targets = entities.filter(e => e !== this && !e.dead);
+            if (!player.dead) targets.push(player);
+            if (targets.length > 0) {
+                targets.sort((a,b) => Math.abs(a.x - this.x) - Math.abs(b.x - this.x));
+                target = targets[0];
+            }
+        }
+
+        if (target) {
+            let dist = target.x - this.x;
+            this.facing = dist > 0 ? 1 : -1;
+
+            if (Math.abs(dist) > 55 && this.projectionFrames === 0) {
+                this.vx = this.facing * 3.8;
+            }
+
+            if (globalFrames % 25 === 0 && Math.random() < 0.7) {
+                let absD = Math.abs(dist);
+                if (absD < 70) this.executeAttack('m1', 8, 65);
+                else if (absD < 250) this.executeTechnique1();
+                
+                if (this.ult >= 100 && Math.random() < 0.3) this.triggerDomainExpansion();
+            }
+        }
+    }
+
+    executeTechnique1() {
+        if (this.cooldowns.s1 > 0) return;
+
+        if (this.type === 'naoya') {
+            // --- NAOYA SIGNATURE TECHNIQUE: PROJECTION DASH ---
+            this.cooldowns.s1 = 80; // 24fps cooldown clock cycle
+            this.projectionFrames = 15; // Number of update cycles to sprint at Mach speed
+            playSound(800, 'sine', 0.2, 0.15, 1200); // Shrill speed accent
+            shake = 6;
+        } else if (this.type === 'todo') {
+            // --- TODO SIGNATURE TECHNIQUE: BOOGIE WOOGIE ---
+            this.cooldowns.s1 = 60; 
+            let targets = entities.filter(e => e !== this && !e.dead);
+            if (this.isBot && !player.dead) targets.push(player);
+            else if (!this.isBot) targets = entities.filter(e => !e.dead);
+
+            if (targets.length > 0) {
+                let choice = targets[Math.floor(Math.random() * targets.length)];
+                playSound(600, 'square', 0.1, 0.2);
+                for(let i=0; i<10; i++) {
+                    spawnPart(this.x + this.w/2, this.y + this.h/2, CHARS.todo.col, 6);
+                    spawnPart(choice.x + choice.w/2, choice.y + choice.h/2, "#fff", 6);
+                }
+                let tempX = this.x; let tempY = this.y;
+                this.x = choice.x; this.y = choice.y;
+                choice.x = tempX; choice.y = tempY;
+                shake = 5;
+            }
+        } else if (this.type === 'mahito') {
+            // --- MAHITO SIGNATURE TECHNIQUE: SOUL REPULSION ---
+            this.cooldowns.s1 = 90;
+            playSound(120, 'sawtooth', 0.3, 0.15, 40);
+            this.executeAttack('s1', 20, 120);
+            for(let i=0; i<15; i++) spawnPart(this.x + (this.facing * 60), this.y + 30, "#d8f3dc", 8);
+        } else {
+            this.executeAttack('s1', 18, 130);
+        }
+    }
+
+    executeAttack(key, dmg, range) {
+        if (this.cooldowns[key] > 0) return;
+        this.cooldowns[key] = key === 'm1' ? 14 : 110;
+        
+        let didHit = false;
+        let scanList = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
+        let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+        
+        spawnPart(this.x + (this.facing*range/2) + this.w/2, this.y + this.h/2, this.isBot ? "#ced4da" : CHARS[this.type].col, 10);
+
+        scanList.forEach(t => {
+            if (t && !t.dead && t !== this) {
+                if (t.x + t.w > hitX && t.x < hitX + range && t.y + t.h > this.y && t.y < this.y + this.h) {
+                    t.takeDmg(dmg, this);
+                    didHit = true;
+                }
+            }
+        });
+
+        playSound(didHit ? 120 : 350, didHit ? 'triangle' : 'sine', 0.15, 0.08);
+        if (didHit && !this.isBot) shake = 8;
+    }
+
+    executeSilentHitboxCheck(dmg, range) {
+        // High-velocity passing check specific to projection sorcery vectors
+        let scanList = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
+        scanList.forEach(t => {
+            if (t && !t.dead && t !== this) {
+                let dist = Math.abs((this.x + this.w/2) - (t.x + t.w/2));
+                if (dist < range && Math.abs(this.y - t.y) < 70) {
+                    t.takeDmg(dmg, this);
+                    // Generate hit sparks instantly on intersection frame
+                    spawnPart(t.x + t.w/2, t.y + t.h/2, "#ffffff", 8);
+                }
+            }
+        });
+    }
+
+    executeBlackFlashAction() {
+        keys['0'] = false; 
+        if (this.cooldowns.blackFlash > 0) return;
+
+        let now = Date.now();
+        let range = 80;
+        let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+        let targetHit = null;
+
+        let scanList = entities.filter(e => !e.dead);
+        scanList.forEach(t => {
+            if (t.x + t.w > hitX && t.x < hitX + range) {
+                targetHit = t;
+            }
+        });
+
+        if (!targetHit) {
+            this.bfCount = 0;
+            this.cooldowns.blackFlash = 40; 
+            return;
+        }
+
+        if (this.bfCount > 0 && (now - this.lastBfTime) > 1000) {
+            this.bfCount = 1; 
+            this.cooldowns.blackFlash = 300; 
+            this.lastBfTime = now;
+            this.applyBlackFlashHit(targetHit, 15);
+            return;
+        }
+
+        this.bfCount++;
+        this.lastBfTime = now;
+
+        if (this.bfCount >= 5) {
+            this.applyBlackFlashHit(targetHit, 45); 
+            triggerRedTextAlert();
+            this.bfCount = 0;
+            this.cooldowns.blackFlash = 900; 
+            playSound(90, 'sawtooth', 0.6, 0.4, 30);
+            shake = 35;
+        } else {
+            this.applyBlackFlashHit(targetHit, 18);
+            this.cooldowns.blackFlash = 15; 
+            playSound(180, 'square', 0.2, 0.25, 60);
+            shake = 12;
+        }
+    }
+
+    applyBlackFlashHit(target, dmg) {
+        target.takeDmg(dmg, this);
+        this.ult = Math.min(100, this.ult + 20); 
+        for(let i=0; i<25; i++) {
+            particles.push({
+                x: target.x + target.w/2, y: target.y + target.h/2,
+                vx: (Math.random()-0.5)*16, vy: (Math.random()-0.5)*16,
+                col: i % 2 === 0 ? "#000000" : "#ff0055", sz: Math.random()*7 + 3, life: 1.2
+            });
+        }
+    }
+
+    triggerDomainExpansion() {
+        this.ult = 0;
+        let dName = this.type === 'heian_sukuna' ? "MALEVOLENT SHRINE (TRUE)" : CHARS[this.type].domain;
+
+        if (activeDomain && activeDomain.owner !== this) {
+            document.getElementById("domain-alert").innerText = "DOMAIN CLASH!";
+            document.getElementById("domain-alert").style.opacity = 1;
+            playSound(60, 'sawtooth', 1.2, 0.35);
+            shake = 25;
+
+            setTimeout(() => {
+                document.getElementById("domain-alert").style.opacity = 0;
+            }, 1500);
+
+            activeDomain = null; 
+            for(let i=0; i<40; i++) spawnPart(W/2 + (Math.random()-0.5)*300, H/2, "#ffffff", 12);
+            return;
+        }
+
+        activeDomain = { owner: this, type: this.type, timer: 360, name: dName };
+        
+        if (!this.isBot) {
+            document.getElementById("domain-alert").innerText = dName;
+            document.getElementById("domain-alert").style.opacity = 1;
+            setTimeout(() => document.getElementById("domain-alert").style.opacity = 0, 1800);
+        }
+
+        playSound(45, 'sine', 1.0, 0.3, 120);
+
+        if (this.type === 'hakari') {
+            this.isJackpot = true;
+            this.jackpotTimer = 650; 
+        }
+    }
+
+    takeDmg(amt, attacker) {
+        if (this.dead) return;
+        this.hp -= amt;
+        this.ult = Math.min(100, this.ult + amt * 0.4);
+
+        for(let i=0; i<6; i++) spawnPart(this.x + this.w/2, this.y + this.h/2, "#ff0044", 4);
+
+        if (this.hp <= 0) {
+            this.hp = 0;
+            this.dead = true;
+            this.bfCount = 0;
+            this.projectionFrames = 0;
+            if (attacker && !attacker.isBot) kills++;
+            if (this.type === 'heian_sukuna') bossInstance = null;
+            setTimeout(() => this.respawn(), 3500);
+        }
+    }
+
+    respawn() {
+        if (this.type === 'heian_sukuna') {
+            entities = entities.filter(e => e !== this);
+            return; 
+        }
+        this.hp = this.maxHp;
+        this.dead = false;
+        this.x = Math.random() * 2400 + 200;
+        this.y = GROUND - 200;
+    }
+
+    draw() {
+        if (this.dead) return;
+
+        ctx.save();
+        if (this.isJackpot || this.projectionFrames > 0) {
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = this.projectionFrames > 0 ? "#d4a373" : "#ffffff";
+        }
+
+        ctx.fillStyle = this.type === 'heian_sukuna' ? "#5a189a" : CHARS[this.type].col;
+        ctx.fillRect(this.x - camX, this.y, this.w, this.h);
+        ctx.restore();
+
+        // Eyes / Focus Vector Nodes
+        ctx.fillStyle = "#ffffff";
+        let eyeX = this.facing === 1 ? this.x - camX + this.w - 12 : this.x - camX + 4;
+        ctx.fillRect(eyeX, this.y + 14, 8, 5);
+
+        // UI Overhead Bar Mappings
+        let bW = this.w + 20;
+        let bX = this.x - camX - 10;
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(bX, this.y - 14, bW, 5);
+        ctx.fillStyle = this.type === 'heian_sukuna' ? "#ef233c" : "#00f5d4";
+        ctx.fillRect(bX, this.y - 14, bW * (this.hp / this.maxHp), 5);
+    }
+}
+
+function spawnPart(x, y, col, sz) {
+    particles.push({
+        x, y, 
+        vx: (Math.random() - 0.5) * 9, 
+        vy: (Math.random() - 0.5) * 9, 
+        col, sz, life: 1.0
+    });
+}
+
+function triggerRedTextAlert() {
+    const el = document.getElementById("flash-alert");
+    el.style.opacity = "1";
+    setTimeout(() => { el.style.opacity = "0"; }, 1200);
+}
+
+function spawnRaidBoss() {
+    bossInstance = new Entity(1400, GROUND - 300, 'heian_sukuna', true);
+    entities.push(bossInstance);
+    playSound(40, 'sawtooth', 1.8, 0.5, 20);
+    shake = 30;
+    
+    for(let i=0; i<60; i++) spawnPart(1400, GROUND - 100, "#5a189a", 14);
+}
+
+// --- ENGINE EXECUTION PIPELINE ---
+function update() {
+    globalFrames++;
+
+    player.update();
+    entities.forEach(e => e.update());
+
+    if (activeDomain) {
+        activeDomain.timer--;
+        if (activeDomain.timer <= 0) activeDomain = null;
+    }
+
+    particles.forEach((p, idx) => {
+        p.x += p.vx; p.y += p.vy;
+        p.life -= 0.025;
+        if (p.life <= 0) particles.splice(idx, 1);
+    });
+
+    camX = player.x - W / 2;
+    if (camX < 0) camX = 0;
+    if (camX > 3000 - W) camX = 3000 - W;
+
+    if (globalFrames % 60 === 0) {
+        if (bossTimer > 0) {
+            bossTimer--;
+        } else {
+            spawnRaidBoss();
+            bossTimer = 360; 
+        }
+    }
+
+    updateUI();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    if (shake > 0) {
+        ctx.save();
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+        shake *= 0.88;
+    }
+
+    // Sky space background render
+    ctx.fillStyle = "#87CEEB";
+    ctx.fillRect(0, 0, W, H);
+
+    if (activeDomain) {
+        ctx.fillStyle = (CHARS[activeDomain.type] ? CHARS[activeDomain.type].col : "#5a189a") + "44";
+        ctx.fillRect(0, 0, W, H);
+    }
+
+    // Shinjuku Street Baseline Grid Floor Elements Layer
+    ctx.fillStyle = "#3d3a45";
+    ctx.fillRect(0, GROUND, W, 100);
+    ctx.fillStyle = "#222026";
+    ctx.fillRect(0, GROUND, W, 6);
+
+    entities.forEach(e => e.draw());
+    if (!player.dead) player.draw();
+
+    particles.forEach(p => {
+        ctx.fillStyle = p.col;
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillRect(p.x - camX, p.y, p.sz, p.sz);
+    });
+    ctx.globalAlpha = 1.0;
+
+    if (shake > 0) {
+        ctx.restore();
+    }
+}
+
+function engineLifecycle() {
+    update();
+    draw();
+    requestAnimationFrame(engineLifecycle);
+}
+
+function updateUI() {
+    document.getElementById("ui-char").innerText = `SORCERER: ${player.type.toUpperCase()}`;
+    document.getElementById("hp-bar").style.width = Math.max(0, player.hp) + "%";
+    document.getElementById("ui-ult").innerText = `ULTIMATE: ${Math.floor(player.ult)}% [G]`;
+    document.getElementById("ui-kills").innerText = kills;
+
+    let m = Math.floor(bossTimer / 60);
+    let s = bossTimer % 60;
+    document.getElementById("ui-timer").innerText = `BOSS SPAWN: ${m}:${s < 10 ? '0' : ''}${s}`;
+
+    let statusText = "Ready";
+    if (player.cooldowns.blackFlash > 300) statusText = `LOCKOUT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
+    else if (player.cooldowns.blackFlash > 0) statusText = `RHYTHM FAULT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
+    document.getElementById("ui-bf").innerText = `BF Combo Track: ${player.bfCount}/5 (${statusText})`;
+
+    document.getElementById("ui-clash").innerText = activeDomain ? `ACTIVE TERRITORY: ${activeDomain.name}` : "";
+}
+
+// --- CONTROLLER EVENT HANDLERS ---
+const keys = {};
+window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(audioCtx.state==='suspended') audioCtx.resume(); };
+window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; };
+window.onmousedown = (e) => { if(e.target.tagName !== "BUTTON") keys['m1'] = true; };
+window.onmouseup = () => keys['m1'] = false;
+
+function showMenu(id) {
+    document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+}
+function closeMenus() { document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')); }
+function selectChar(type) { player.type = type; player.hp = 100; player.bfCount = 0; player.projectionFrames = 0; closeMenus(); }
+
+// Build character roster list
+const container = document.getElementById("char-list");
+Object.keys(CHARS).forEach(c => {
+    let b = document.createElement("button");
+    b.innerText = c;
+    b.style.borderLeft = `5px solid ${CHARS[c].col}`;
+    b.onclick = () => selectChar(c);
+    container.appendChild(b);
+});
+
+// Deploy structures setup parameters mapping execution loop
+player = new Entity(200, GROUND - 100, 'naoya', false);
+for(let i=0; i<8; i++) {
+    entities.push(new Entity(Math.random()*2200 + 200, GROUND - 100, Object.keys(CHARS)[i % Object.keys(CHARS).length], true));
+}
+
+engineLifecycle();
+</script>
+</body>
+</html>
