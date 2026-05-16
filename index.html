@@ -1,263 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>JujutsuJam - Shinjuku Showdown Arena</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            background: #050508; 
-            font-family: 'Courier New', Courier, monospace; 
-            user-select: none; 
-            -webkit-user-select: none;
-            touch-action: none;
-        }
-        #gameCanvas { 
-            display: block; 
-            background: #020205; 
-        }
-        .menu { 
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            background: linear-gradient(145deg, rgba(12, 13, 24, 0.98), rgba(5, 6, 10, 0.98)); 
-            border: 2px solid #ff3366; 
-            padding: 30px; 
-            border-radius: 12px; 
-            color: #fff; 
-            text-align: center; 
-            z-index: 10; 
-            width: 85%;
-            max-width: 420px; 
-            box-shadow: 0 0 50px rgba(255, 0, 85, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.05); 
-            backdrop-filter: blur(10px);
-            box-sizing: border-box;
-        }
-        button { 
-            background: linear-gradient(180deg, #1f2833 0%, #151b24 100%); 
-            color: #45f3ff; 
-            border: 1px solid rgba(69, 243, 255, 0.4); 
-            padding: 12px; 
-            margin: 8px 0; 
-            cursor: pointer; 
-            width: 100%; 
-            text-transform: uppercase; 
-            font-weight: bold; 
-            letter-spacing: 2px; 
-            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
-            border-radius: 6px;
-        }
-        button:hover { 
-            background: #ff3366; 
-            color: #fff; 
-            box-shadow: 0 0 20px rgba(255, 51, 102, 0.6); 
-            transform: translateY(-1px);
-        }
-        #ui { 
-            position: absolute; 
-            top: 20px; 
-            left: 20px; 
-            color: #fff; 
-            pointer-events: none; 
-            width: calc(100% - 40px); 
-            display: flex; 
-            justify-content: space-between; 
-            z-index: 5;
-        }
-        .hidden { display: none !important; }
-        #flash-alert { 
-            position: absolute; 
-            top: 25%; 
-            left: 50%; 
-            transform: translate(-50%, -50%) scale(0.8); 
-            color: #fff; 
-            font-size: 75px; 
-            font-weight: 900; 
-            pointer-events: none; 
-            text-shadow: 0 0 10px #000, 0 0 30px #ff0033, 0 0 60px #000; 
-            opacity: 0; 
-            transition: all 0.08s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            font-family: 'Impact', sans-serif; 
-            letter-spacing: 4px; 
-            z-index: 8; 
-        }
-        #domain-alert { 
-            position: absolute; 
-            top: 35%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            color: #fff; 
-            font-size: 40px; 
-            font-weight: bold; 
-            pointer-events: none; 
-            text-shadow: 0 0 20px #000, 0 0 40px rgba(255,255,255,0.8); 
-            opacity: 0; 
-            text-transform: uppercase; 
-            letter-spacing: 6px; 
-            z-index: 8; 
-            text-align: center;
-            font-family: 'Impact', sans-serif;
-            line-height: 1.2;
-        }
-        #cooldown-panel { 
-            margin-top: 8px; 
-            font-size: 12px; 
-            display: flex; 
-            gap: 10px; 
-            flex-wrap: wrap; 
-            max-width: 600px; 
-        }
-        .cd-badge { 
-            background: rgba(4, 5, 8, 0.85); 
-            border: 1px solid rgba(255, 51, 102, 0.3); 
-            padding: 4px 10px; 
-            border-radius: 4px; 
-            backdrop-filter: blur(4px);
-        }
-        .tool-btn { font-size: 11px; margin: 4px 0; padding: 8px; text-align: left; }
-
-        #mobile-dpad {
-            position: absolute;
-            bottom: 30px;
-            left: 30px;
-            width: 140px;
-            height: 140px;
-            background: rgba(10, 11, 18, 0.4);
-            border: 2px dashed rgba(255, 51, 102, 0.2);
-            border-radius: 50%;
-            z-index: 9;
-            display: none;
-            touch-action: none;
-        }
-        #mobile-joystick {
-            position: absolute;
-            top: 45px;
-            left: 45px;
-            width: 50px;
-            height: 50px;
-            background: radial-gradient(circle, #ff3366 0%, #1f2833 100%);
-            border-radius: 50%;
-            box-shadow: 0 0 15px rgba(255, 51, 102, 0.6);
-        }
-        #mobile-actions {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            display: none;
-            grid-template-columns: repeat(3, 95px);
-            gap: 12px;
-            z-index: 9;
-            touch-action: none;
-        }
-        .m-btn {
-            width: 95px;
-            height: 65px;
-            background: rgba(15, 20, 30, 0.85);
-            border: 2px solid rgba(255, 51, 102, 0.4);
-            border-radius: 8px;
-            color: #fff;
-            font-weight: bold;
-            font-size: 11px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 2px;
-            box-sizing: border-box;
-            text-transform: uppercase;
-        }
-        .m-btn span {
-            font-size: 8px;
-            color: #45f3ff;
-            margin-top: 2px;
-        }
-        .m-btn:active {
-            background: #ff3366;
-            color: #fff;
-            box-shadow: 0 0 20px rgba(255, 51, 102, 0.8);
-        }
-        .m-btn-large {
-            background: rgba(255, 0, 85, 0.3);
-            border-color: #ff0055;
-            color: #fff;
-        }
-        @media (max-width: 1024px) {
-            #mobile-dpad, #mobile-actions { display: grid; }
-            #mobile-dpad { display: block; }
-        }
-    </style>
-</head>
-<body>
-
-    <div id="flash-alert">BLACK FLASH</div>
-    <div id="domain-alert">DOMAIN EXPANSION</div>
-    
-    <div id="ui" class="hidden">
-        <div>
-            <div id="ui-char" style="font-weight: bold; color: #ff3366; font-size: 18px; letter-spacing: 1px;">SORCERER: READY</div>
-            <div id="ui-item" style="font-size:12px; color:#ffb703; margin-top: 2px; margin-bottom:6px; font-weight: bold;">EQUIPPED: NONE</div>
-            <div style="width:280px; height:12px; background:rgba(0,0,0,0.8); border:1px solid rgba(255,51,102,0.5); margin: 6px 0; overflow: hidden;">
-                <div id="hp-bar" style="width:100%; height:100%; background: linear-gradient(90deg, #ff0055, #ff758f); transition: width 0.05s linear;"></div>
-            </div>
-            <div id="ui-ult" style="color: #ff00cc; font-weight: bold; font-size: 13px;">CURSED ENERGY OUTPUT: 0% [G]</div>
-            <div id="ui-bf" style="color: #45f3ff; font-size: 12px; margin-top: 2px; font-weight: bold; text-shadow: 0 0 5px rgba(69,243,255,0.5);">[Easy Flash Mode Active - Hit '0' or Tap FLASH button]</div>
-            <div id="cooldown-panel">
-                <div class="cd-badge">Move 1 [E]: <span id="cd-e" style="color: #45f3ff; font-weight: bold;">READY</span></div>
-                <div class="cd-badge">Move 2 [R]: <span id="cd-r" style="color: #45f3ff; font-weight: bold;">READY</span></div>
-            </div>
-        </div>
-        <div style="text-align:right; font-family: monospace;">
-            <div id="arena-title" style="font-size: 20px; color: #ff3366; font-weight: bold; letter-spacing: 1px;">SHINJUKU INCIDENT ARENA</div>
-            <div id="score-label" style="margin-top: 4px;">EXORCISED TARGETS: <span id="ui-kills" style="color:#45f3ff; font-weight:bold;">0</span></div>
-            <div id="ui-clash" style="color: #ffb703; font-weight: bold; font-size:13px; margin-top:4px;"></div>
-            <button onclick="openMenuFromGame()" style="width: auto; padding: 6px 14px; font-size: 11px; margin-top: 8px; background: rgba(20,20,30,0.8); border-color: #333; pointer-events: auto;">MAIN MENU</button>
-        </div>
-    </div>
-
-    <div id="mobile-dpad"><div id="mobile-joystick"></div></div>
-    <div id="mobile-actions">
-        <div class="m-btn" id="mb-up">JUMP<span>W</span></div>
-        <div class="m-btn" id="mb-m1">ATTACK<span>M1</span></div>
-        <div class="m-btn" id="mb-e"><div id="lbl-e">MOVE 1</div><span>E</span></div>
-        <div class="m-btn m-btn-large" id="mb-bf">FLASH<span>0</span></div>
-        <div class="m-btn" id="mb-r"><div id="lbl-r">MOVE 2</div><span>R</span></div>
-        <div class="m-btn" id="mb-g" style="color: #ff00cc; border-color: #ff00cc;"><div id="lbl-g">ULTIMATE</div><span>G</span></div>
-    </div>
-
-    <!-- MAIN MENU -->
-    <div id="main-menu" class="menu">
-        <h1 style="color:#ff3366; margin-top:0; letter-spacing: 4px; font-family: 'Impact', sans-serif;">JUJUTSU SHINJUKU</h1>
-        <button onclick="showMenu('char-menu')">Select Sorcerer</button>
-        <button onclick="showMenu('vault-menu')" style="border-color: rgba(255,183,3,0.4); color: #ffb703;">Cursed Tool Vault</button>
-        <button onclick="startArenaMode('battle')" style="background: linear-gradient(180deg, #ff0055 0%, #990033 100%); color:#fff; border-color: #ff4d6d; margin-top:20px;">ENTER SHINJUKU SHOWDOWN</button>
-        <button onclick="startArenaMode('training')" style="background: linear-gradient(180deg, #00ffcc 0%, #009977 100%); color:#000; border-color: #66fcf1; margin-top:5px;">TRAINING FIELD (PASSIVE DUMMY)</button>
-    </div>
-
-    <!-- ROSTER MENU -->
-    <div id="char-menu" class="menu hidden">
-        <h2 style="color:#ff3366; margin-top:0; letter-spacing: 1px;">SELECT CHARACTER</h2>
-        <div id="char-list" style="max-height: 320px; overflow-y: auto; padding-right: 5px;"></div>
-        <button onclick="showMenu('main-menu')" style="background:#1f2833; margin-top: 15px; color: #aaa; border-color: #444;">RETURN</button>
-    </div>
-
-    <!-- CURSED TOOL VAULT -->
-    <div id="vault-menu" class="menu hidden">
-        <h2 style="color:#ffb703; margin-top:0; letter-spacing: 1px;">CURSED VAULT</h2>
-        <p style="font-size:11px; color:#aaa; margin-bottom:15px;">Equipping items will dynamically render them directly on your character's combat hand!</p>
-        <button class="tool-btn" style="border-left: 5px solid #ff00cc;" onclick="selectItem('ring')">Yuta's Ring<br><span style="font-size:10px; color:#aaa;">+30% Attack Power Enhancement</span></button>
-        <button class="tool-btn" style="border-left: 5px solid #ffb703;" onclick="selectItem('staff')">Kashimo's Staff<br><span style="font-size:10px; color:#aaa;">+35% Velocity Boost — Electricity Conductive</span></button>
-        <button class="tool-btn" style="border-left: 5px solid #ee2400;" onclick="selectItem('dagger')">Slaughter Demon<br><span style="font-size:10px; color:#aaa;">+45% Critical Slash Integration</span></button>
-        <button class="tool-btn" style="background:#111; color:#fff; border-color:#222;" onclick="selectItem('none')">Unequip Artifact</button>
-        <button onclick="showMenu('main-menu')" style="background:#1f2833; margin-top: 15px; color: #aaa; border-color: #444;">RETURN</button>
-    </div>
-
-    <canvas id="gameCanvas"></canvas>
-
 <script>
 // --- AUDIO SYNTH GENERATION ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -390,7 +130,9 @@ class Entity {
             return;
         }
 
-        this.animTimer += Math.abs(this.vx) > 0.5 ? 0.22 : 0.05;
+        // Smoother incremental timeline speed modifier based on current movement state
+        let currentVel = Math.abs(this.vx);
+        this.animTimer += currentVel > 0.5 ? (currentVel * 0.04) : 0.04;
 
         let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
         if (isFrozenByGojo) {
@@ -685,17 +427,17 @@ class Entity {
         setTimeout(() => { dAlert.style.opacity = "0"; }, 2000);
     }
 
-    // --- HIGH-PERFORMANCE INVERSE KINEMATICS ANIMATION ENGINE ---
+    // --- REFACTORED FLIPACLIP TRADITIONAL PASSING-STANCE INVERSE KINEMATICS ---
     drawStickFigure(ctx, cx) {
         let col = CHARS[this.type].col;
         ctx.strokeStyle = col;
         ctx.fillStyle = col;
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 4.5;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
         let isGrounded = this.y >= GROUND - this.h;
-        let isMoving = Math.abs(this.vx) > 0.5;
+        let isMoving = Math.abs(this.vx) > 0.75;
         let isPunching = this.cooldowns.m1 > 0;
         let isCasting = this.cooldowns.s1 > 20 || this.cooldowns.s2 > 40;
 
@@ -703,496 +445,517 @@ class Entity {
         
         // Kinematic Weight Profiles
         let lean = 0; 
-        let hipDrop = 0;
         let bounceY = 0;
+        let hipAngle = 0;
 
         if (isMoving && isGrounded) {
-            lean = this.facing * 0.18;
-            bounceY = Math.abs(Math.sin(t * 2)) * 3;
+            lean = this.facing * 0.18; // Lean slightly into the velocity acceleration
+            
+            // Traditional Animation Curve mapping: Low down curves, high passing sweeps
+            // Sin squared creates a localized high bounce, tracking dual leg strikes per rotation loop
+            bounceY = Math.sin(t * Math.PI * 2) * 4; 
+            hipAngle = Math.cos(t * Math.PI * 2) * 0.15;
         }
         if (!isGrounded) {
-            hipDrop = 4;
-            lean = this.facing * 0.08;
+            lean = this.facing * 0.05;
+            bounceY = 3; // Drop hips lower when suspended in free air space
         }
         if (isPunching) {
-            lean = this.facing * 0.35;
+            lean = this.facing * 0.32;
         }
 
-        // --- SPECIFIC CHARACTER COMBAT STANCES ---
         let isGojoFloat = this.type === 'gojo';
         let isSukunaCrossed = this.type === 'sukuna' && !isPunching && !isCasting && isGrounded;
-        let isMahitoDistorted = this.type === 'mahito';
 
         if (isGojoFloat) {
-            bounceY = Math.sin(globalFrames * 0.06) * 6 - 8; // Constant smooth floating glide
+            bounceY = Math.sin(globalFrames * 0.05) * 6 - 12; // Constant smooth floating glide
+            isMoving = false; // Override stance behaviors to preserve floating majesty
         }
 
-        // Base Joint Calculation Nodes
-        let headRadius = 9;
+        // Base Joint Nodes Setup
+        let headRadius = 8.5;
         let spineLen = 22;
-        let limbLen = 17;
+        let upperLegLen = 17;
+        let lowerLegLen = 16;
 
         let originX = this.x + this.w / 2 - cx;
         let originY = this.y + headRadius + 4 + bounceY;
 
-        let neckX = originX + (lean * 5);
+        let neckX = originX + (lean * 6);
         let neckY = originY + headRadius;
 
-        let pelvisX = originX - (lean * 8);
-        let pelvisY = neckY + spineLen + hipDrop;
+        let pelvisX = originX - (lean * 4);
+        let pelvisY = neckY + spineLen;
 
-        // Draw Head Node
+        // Draw Head
         ctx.beginPath();
         ctx.arc(originX, originY, headRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Draw Spinal Torso Line
+        // Draw Spinal Torso Column
         ctx.beginPath();
         ctx.moveTo(neckX, neckY);
         ctx.lineTo(pelvisX, pelvisY);
         ctx.stroke();
 
-        // Stride Cycles Phase Generation
-        let leftPhase = t * 2.2;
-        let rightPhase = leftPhase + Math.PI;
-
-        let handL_X, handL_Y, handR_X, handR_Y;
-        let footL_X, footL_Y, footR_X, footR_Y;
-        let kneeL_X, kneeL_Y, kneeR_X, kneeR_Y;
-
-        // --- ARMS INVERSE GEOMETRY MATRIX ---
-        if (isPunching) {
-            let punchProgress = (12 - this.cooldowns.m1) / 12;
-            let extension = Math.sin(punchProgress * Math.PI) * (limbLen * 1.9);
+        // Compute Leg Kinematic Node Joint Vectors
+        let legDraw = (phaseOffset, sideSign) => {
+            let footTargetX, footTargetY;
             
-            handL_X = neckX + this.facing * extension;
-            handL_Y = neckY + 2 - (punchProgress * 4);
-            
-            // Back guarding arm profile
-            handR_X = neckX - this.facing * 6;
-            handR_Y = neckY + 12;
-        } 
-        else if (isCasting) {
-            // High energy directional projection pose
-            handL_X = neckX + this.facing * (limbLen * 1.5);
-            handL_Y = neckY - 2;
-            handR_X = neckX + this.facing * (limbLen * 1.4);
-            handR_Y = neckY + 6;
-        } 
-        else if (isSukunaCrossed) {
-            // Crossed arms configuration overlaying torso
-            handL_X = neckX + this.facing * 8;
-            handL_Y = neckY + 10;
-            handR_X = neckX - this.facing * 2;
-            handR_Y = neckY + 12;
-        }
-        else if (isGojoFloat && !isMoving) {
-            // Royal relaxed posture with arms hanging directly down/back
-            handL_X = neckX - this.facing * 5;
-            handL_Y = neckY + limbLen + 4;
-            handR_X = neckX - this.facing * 8;
-            handR_Y = neckY + limbLen + 2;
-        }
-        else if (!isGrounded) {
-            // Dynamic aerial balance sweep upwards
-            handL_X = neckX - this.facing * 12 + Math.sin(leftPhase) * 4;
-            handL_Y = neckY - 8;
-            handR_X = neckX + this.facing * 12 + Math.cos(rightPhase) * 4;
-            handR_Y = neckY - 10;
-        } 
-        else if (isMoving) {
-            // High-velocity athletic stride alternation
-            handL_X = neckX + Math.sin(leftPhase) * (limbLen * 0.9);
-            handL_Y = neckY + 8 + Math.cos(leftPhase) * 5;
-            handR_X = neckX + Math.sin(rightPhase) * (limbLen * 0.9);
-            handR_Y = neckY + 8 + Math.cos(rightPhase) * 5;
-        } 
-        else {
-            // Smooth idle breathing profile
-            handL_X = neckX - this.facing * 7 + Math.sin(t) * 1.5;
-            handL_Y = neckY + limbLen - 2;
-            handR_X = neckX + this.facing * 7 - Math.sin(t) * 1.5;
-            handR_Y = neckY + limbLen - 1;
-        }
+            if (isGrounded && (isMoving || Math.abs(this.vx) > 0.1)) {
+                // Ground phase evaluation map
+                let cycle = (t * Math.PI * 2 + phaseOffset) % (Math.PI * 2);
+                
+                // Elliptical rotation tracing the true swing trajectory of a natural ankle footprint
+                let strideRadius = 16 * this.facing;
+                
+                // Horizontal tracking calculation loop
+                footTargetX = pelvisX + Math.cos(cycle) * strideRadius;
+                
+                // Vertical check: If tracing the under half of rotation cycle, plant it directly flat onto the tarmac
+                if (Math.sin(cycle) > 0) {
+                    footTargetY = GROUND; // Floor Planted Phase
+                } else {
+                    // Swing/Passing Phase: Clean vertical arc clearance
+                    footTargetY = GROUND + Math.sin(cycle) * 11;
+                }
+            } else if (!isGrounded) {
+                // Free Hanging Suspension Profile
+                footTargetX = pelvisX + (sideSign * 5) - (this.vx * 1.5);
+                footTargetY = pelvisY + upperLegLen + lowerLegLen - 4;
+            } else {
+                // Pure Idle Default Stand Stance
+                footTargetX = pelvisX + sideSign * 8;
+                footTargetY = GROUND;
+            }
 
-        // Render Arm Joints (Shoulder -> Elbow -> Wrist)
-        let drawArmSegment = (sx, sy, hx, hy, flipBend) => {
+            // Analytical Two-Joint IK Geometric Solver (Trigonometric Triangle Solver)
+            let dx = footTargetX - pelvisX;
+            let dy = footTargetY - pelvisY;
+            let distanceToFoot = Math.sqrt(dx * dx + dy * dy);
+            
+            // Constrain target threshold boundaries to protect from leg separation bugs
+            let maxReach = (upperLegLen + lowerLegLen) * 0.98;
+            if (distanceToFoot > maxReach) {
+                footTargetX = pelvisX + (dx / distanceToFoot) * maxReach;
+                footTargetY = pelvisY + (dy / distanceToFoot) * maxReach;
+                dx = footTargetX - pelvisX;
+                dy = footTargetY - pelvisY;
+                distanceToFoot = maxReach;
+            }
+
+            // Law of Cosines to extract matching interior knee bend angle profiles
+            let angleBase = Math.atan2(dy, dx);
+            let cosKnee = (upperLegLen * upperLegLen + distanceToFoot * distanceToFoot - lowerLegLen * lowerLegLen) / (2 * upperLegLen * distanceToFoot);
+            cosKnee = Math.max(-1, Math.min(1, cosKnee));
+            let angleKneeOffset = Math.acos(cosKnee);
+
+            // Compute Knee Joint Position Node (Bend backwards relative to forward facing velocity vector)
+            let bendDirection = -this.facing;
+            let kneeX = pelvisX + Math.cos(angleBase + bendDirection * angleKneeOffset) * upperLegLen;
+            let kneeY = pelvisY + Math.sin(angleBase + bendDirection * angleKneeOffset) * upperLegLen;
+
+            // Render absolute lines across computed skeletal paths
             ctx.beginPath();
-            ctx.moveTo(sx, sy);
-            let midX = (sx + hx) / 2 + (flipBend ? -3 : 3);
-            let midY = (sy + hy) / 2 + 4;
-            ctx.lineTo(midX, midY);
-            ctx.lineTo(hx, hy);
+            ctx.moveTo(pelvisX, pelvisY);
+            ctx.lineTo(kneeX, kneeY);
+            ctx.lineTo(footTargetX, footTargetY);
             ctx.stroke();
-            return {x: hx, y: hy};
         };
 
-        let primaryHand = drawArmSegment(neckX, neckY, handL_X, handL_Y, this.facing < 0);
-        drawArmSegment(neckX, neckY, handR_X, handR_Y, this.facing > 0);
+        // Render Background Loop Leg first, then Foreground Loop Leg for clean layer processing
+        legDraw(Math.PI, -1); // Leg B (180 degrees out of phase)
+        legDraw(0, 1);       // Leg A (Base Timeline Phase Alignment)
 
-        // --- LEGS STRIDE STEPPING INVERSE GEOMETRY ---
-        let groundY = this.y + this.h;
+        // --- HANDS & UPPER SKELETAL RENDERING MATRIX ---
+        let handL_X, handL_Y, handR_X, handR_Y;
+        let armLen = 16;
 
-        if (!isGrounded) {
-            // Athletic flying drop-knee profile
-            footL_X = pelvisX - this.facing * 8;
-            footL_Y = pelvisY + limbLen * 1.1;
-            footR_X = pelvisX + this.facing * 6;
-            footR_Y = pelvisY + limbLen * 0.7;
-
-            kneeL_X = (pelvisX + footL_X) / 2 - this.facing * 5;
-            kneeL_Y = (pelvisY + footL_Y) / 2 + 2;
-            kneeR_X = (pelvisX + footR_X) / 2 + this.facing * 4;
-            kneeR_Y = (pelvisY + footR_Y) / 2 - 2;
-        } 
-        else if (isMoving) {
-            // True contact point velocity cycle
-            footL_X = pelvisX + Math.sin(leftPhase) * (limbLen * 1.3);
-            footL_Y = groundY - Math.max(0, Math.cos(leftPhase) * 6);
+        if (isPunching) {
+            let punchProgress = (12 - this.cooldowns.m1) / 12;
+            let extension = Math.sin(punchProgress * Math.PI) * (armLen * 2.1);
             
-            footR_X = pelvisX + Math.sin(rightPhase) * (limbLen * 1.3);
-            footR_Y = groundY - Math.max(0, Math.cos(rightPhase) * 6);
-
-            kneeL_X = (pelvisX + footL_X) / 2 + Math.cos(leftPhase) * 4;
-            kneeL_Y = (pelvisY + footL_Y) / 2 - 2;
-            kneeR_X = (pelvisX + footR_X) / 2 + Math.cos(rightPhase) * 4;
-            kneeR_Y = (pelvisY + footR_Y) / 2 - 2;
+            handL_X = neckX + this.facing * extension;
+            handL_Y = neckY + 1 - (punchProgress * 5);
+            
+            handR_X = neckX - this.facing * 5;
+            handR_Y = neckY + 11;
         } 
+        else if (isCasting) {
+            handL_X = neckX + this.facing * (armLen * 1.4);
+            handL_Y = neckY - 4;
+            handR_X = neckX + this.facing * (armLen * 1.3);
+            handR_Y = neckY + 4;
+        } 
+        else if (isSukunaCrossed) {
+            handL_X = neckX + this.facing * 7;
+            handL_Y = neckY + 9;
+            handR_X = neckX - this.facing * 3;
+            handR_Y = neckY + 11;
+        }
+        else if (isMoving && isGrounded) {
+            // Natural Arm Swing (Opposite phase to sync naturally with leg stride intervals)
+            let swingAngle = Math.sin(t * Math.PI * 2) * 0.65;
+            handL_X = neckX + Math.sin(swingAngle) * armLen - (this.facing * 3);
+            handL_Y = neckY + Math.cos(swingAngle) * armLen + 4;
+
+            handR_X = neckX - Math.sin(swingAngle) * armLen + (this.facing * 2);
+            handR_Y = neckY - Math.cos(swingAngle) * armLen + 4;
+        }
         else {
-            // Dynamic wide idle staging combat floor
-            footL_X = pelvisX - 10;
-            footL_Y = groundY;
-            footR_X = pelvisX + 10;
-            footR_Y = groundY;
-
-            kneeL_X = (pelvisX + footL_X) / 2 - 2;
-            kneeL_Y = (pelvisY + footL_Y) / 2 + 1;
-            kneeR_X = (pelvisX + footR_X) / 2 + 2;
-            kneeR_Y = (pelvisY + footR_Y) / 2 + 1;
+            // Standard Relaxed Combat Crouch Pose Idle State
+            handL_X = neckX + this.facing * 5;
+            handL_Y = neckY + 14;
+            handR_X = neckX - this.facing * 6;
+            handR_Y = neckY + 13;
         }
 
-        // Mahito Polymorphic Rubberization Filter Override
-        if (isMahitoDistorted) {
-            let distortion = Math.sin(globalFrames * 0.2) * 6;
-            kneeL_X += distortion;
-            kneeR_Y += distortion * 0.5;
-        }
-
-        // Render Lower Structural Leg Joints
+        // Draw Left Arm Setup
         ctx.beginPath();
-        ctx.moveTo(pelvisX, pelvisY);
-        ctx.lineTo(kneeL_X, kneeL_Y);
-        ctx.lineTo(footL_X, footL_Y);
+        ctx.moveTo(neckX, neckY);
+        ctx.lineTo(handL_X, handL_Y);
         ctx.stroke();
 
+        // Draw Right Arm Setup
         ctx.beginPath();
-        ctx.moveTo(pelvisX, pelvisY);
-        ctx.lineTo(kneeR_X, kneeR_Y);
-        ctx.lineTo(footR_X, footR_Y);
+        ctx.moveTo(neckX, neckY);
+        ctx.lineTo(handR_X, handR_Y);
         ctx.stroke();
 
-        // --- ARTIFACT MATRIX ORIENTATION ALIGNMENT ---
+        // Dynamic Cursed Weapon Layer Attachment Mapping Modifiers
         if (this === player && equippedItem !== "none") {
-            ctx.save();
-            ctx.fillStyle = ITEMS[equippedItem].col;
-            ctx.strokeStyle = ITEMS[equippedItem].col;
-            ctx.lineWidth = 4;
-            
-            let weaponX = primaryHand.x;
-            let weaponY = primaryHand.y;
+            let itemData = ITEMS[equippedItem];
+            ctx.fillStyle = itemData.col;
+            ctx.strokeStyle = itemData.col;
+            ctx.lineWidth = 3;
 
-            if (equippedItem === "dagger") {
-                ctx.save();
-                ctx.translate(weaponX, weaponY);
-                ctx.rotate(this.facing === 1 ? -0.4 : Math.PI + 0.4);
-                // Handle/hilt
-                ctx.fillStyle = "#222"; ctx.fillRect(0, -2, 6, 4);
-                // Blade structure
-                ctx.fillStyle = ITEMS.dagger.col;
+            let mainHandX = handL_X;
+            let mainHandY = handL_Y;
+
+            if (equippedItem === "ring") {
                 ctx.beginPath();
-                ctx.moveTo(6, -3); ctx.lineTo(22, -1); ctx.lineTo(6, 3);
+                ctx.arc(mainHandX, mainHandY, 4, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.restore();
-            } 
-            else if (equippedItem === "staff") {
+            } else if (equippedItem === "staff") {
                 ctx.beginPath();
-                // Angled combat staff alignment passing through active hand node
-                ctx.moveTo(weaponX - this.facing * 12, weaponY - 24);
-                ctx.lineTo(weaponX + this.facing * 18, weaponY + 28);
+                ctx.moveTo(mainHandX - 4, mainHandY - 24);
+                ctx.lineTo(mainHandX + 4, mainHandY + 24);
                 ctx.stroke();
-            } 
-            else if (equippedItem === "ring") {
+                if (globalFrames % 4 === 0) {
+                    spawnVisualEffect(mainHandX + (Math.random()*12-6), mainHandY - 12, "#ffb703", 2, 'spark');
+                }
+            } else if (equippedItem === "dagger") {
                 ctx.beginPath();
-                ctx.arc(weaponX, weaponY, 6, 0, Math.PI * 2);
+                ctx.moveTo(mainHandX, mainHandY);
+                ctx.lineTo(mainHandX + this.facing * 16, mainHandY - 6);
                 ctx.stroke();
-                ctx.fillStyle = "#fff";
-                ctx.fillRect(weaponX - 2, weaponY - 2, 4, 4);
             }
-            ctx.restore();
         }
     }
 }
 
-function triggerImpactFrame(x, y, color) {
-    impactFrames.push({ x: x, y: y, color: color, life: 6 }); 
-}
+// --- ENGINE INITIALIZATION AND INTEGRATED SUBSYSTEM LOOP CONTEXTS ---
 
-function spawnVisualEffect(x, y, color, amt, type) {
-    for (let i = 0; i < amt; i++) {
+function spawnVisualEffect(x, y, color, amount, type) {
+    for (let i = 0; i < amount; i++) {
         particles.push({
             x: x, y: y,
-            vx: type==='shatter' ? (Math.random()*20 - 10) : (Math.random()*8 - 4),
-            vy: type==='fountain' ? (Math.random()*-9 - 2) : (Math.random()*8 - 4),
-            size: type==='slash' ? Math.random()*16 + 5 : Math.random()*6 + 2,
+            vx: type === 'fountain' ? (Math.random() * 8 - 4) : type === 'shatter' ? (Math.random() * 14 - 7) : (Math.random() * 4 - 2),
+            vy: type === 'fountain' ? -(Math.random() * 10 + 3) : type === 'shatter' ? (Math.random() * 14 - 7) : (Math.random() * 4 - 2),
+            life: Math.random() * 25 + 15,
+            maxLife: 30,
             color: color,
-            alpha: 1,
-            life: Math.random()*25 + 15,
-            maxLife: 35,
             type: type
         });
     }
 }
 
-function updateProjectiles() {
-    for (let i = projectNails.length - 1; i >= 0; i--) {
-        let n = projectNails[i];
-        n.x += n.vx;
-        n.y += (n.vy || 0);
-        
-        let targets = entities.concat([player]);
-        let hit = false;
-        for (let j = 0; j < targets.length; j++) {
-            let t = targets[j];
-            if (t && !t.dead && t !== n.owner) {
-                if (n.x > t.x && n.x < t.x + t.w && n.y > t.y && n.y < t.y + t.h) {
-                    t.takeDmg(12, n.owner);
-                    n.owner.bfWindowTimer = 35; 
-                    n.owner.lastHitTarget = t;
-                    hit = true; break;
-                }
-            }
-        }
-        if (hit || n.x < 0 || n.x > 3500) projectNails.splice(i, 1);
-    }
-}
-
-function renderScene() {
-    if (impactFrames.length > 0) {
-        let frame = impactFrames[0];
-        frame.life--;
-        ctx.fillStyle = frame.color;
-        ctx.fillRect(0, 0, W, H);
-        if (frame.life <= 0) impactFrames.shift();
-        return; 
-    }
-
-    ctx.clearRect(0, 0, W, H);
-    
-    let targetCamX = player.x - W / 2 + player.w / 2;
-    camX = camX * 0.80 + targetCamX * 0.20;
-    if (camX < 0) camX = 0;
-    if (camX > 3500 - W) camX = 3500 - W;
-
-    ctx.save();
-    if (shake > 0) {
-        ctx.translate(Math.random()*shake - shake/2, Math.random()*shake - shake/2);
-        shake *= 0.9;
-    }
-
-    ctx.fillStyle = "#0c0d14";
-    ctx.fillRect(0, 0, W, GROUND);
-    
-    mapDebris.forEach(deb => {
-        ctx.fillStyle = deb.color;
-        ctx.fillRect(deb.x - camX, deb.y, deb.w, deb.h);
-        ctx.strokeStyle = "#000";
-        ctx.strokeRect(deb.x - camX, deb.y, deb.w, deb.h);
-    });
-
-    ctx.fillStyle = "#11121c";
-    ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.fillStyle = "#ff3366";
-    ctx.fillRect(0, GROUND, W, 3);
-
-    if (activeDomain) {
-        ctx.beginPath();
-        ctx.arc(activeDomain.x - camX, activeDomain.y, activeDomain.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255, 0, 85, 0.08)";
-        ctx.fill();
-        ctx.strokeStyle = CHARS[activeDomain.type].col;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-    }
-
-    let allEntities = entities.concat([player]);
-    allEntities.forEach(e => {
-        if (!e || e.dead) return;
-
-        e.drawStickFigure(ctx, camX);
-
-        if (e.type === 'mechamaru') {
-            e.mechamaruPuppets.forEach((p, idx) => {
-                let angle = (globalFrames * 0.05) + (idx * (Math.PI * 2 / 3));
-                let orbX = e.x + e.w/2 + Math.cos(angle) * 50;
-                let orbY = e.y + e.h/2 + Math.sin(angle) * 30;
-                ctx.fillStyle = "#ffb703";
-                ctx.fillRect(orbX - camX, orbY, 10, 10);
-            });
-        }
-
-        if (e.bfWindowTimer > 0) {
-            ctx.strokeStyle = "#45f3ff";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(e.x - camX - 4, e.y - 4, e.w + 8, e.h + 8);
-        }
-
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(e.x - camX - 5, e.y - 15, e.w + 10, 5);
-        ctx.fillStyle = "#ff3366";
-        ctx.fillRect(e.x - camX - 5, e.y - 15, (e.w + 10) * (e.hp / e.maxHp), 5);
-    });
-
-    for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i]; p.life--; p.x += p.vx; p.y += p.vy;
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.life / p.maxLife;
-        ctx.fillRect(p.x - camX, p.y, p.size, p.size);
-    }
-    ctx.globalAlpha = 1.0;
-    ctx.restore();
-}
-
-function updateMobileLabels(charKey) {
-    const data = CHARS[charKey];
-    document.getElementById("lbl-e").innerText = data.m1;
-    document.getElementById("lbl-r").innerText = data.m2;
-    document.getElementById("lbl-g").innerText = data.hasDomain ? "DOMAIN" : "ULTIMATE";
-}
-
-function processUI() {
-    if (!player) return;
-    document.getElementById("hp-bar").style.width = `${(player.hp / player.maxHp) * 100}%`;
-    document.getElementById("ui-kills").innerText = kills;
-    document.getElementById("cd-e").innerText = player.cooldowns.s1 > 0 ? `${Math.ceil(player.cooldowns.s1 / 60)}s` : "READY";
-    document.getElementById("cd-r").innerText = player.cooldowns.s2 > 0 ? `${Math.ceil(player.cooldowns.s2 / 60)}s` : "READY";
-    
-    let label = CHARS[player.type].hasDomain ? "CURSED ENERGY" : "ULTIMATE CHARGE";
-    let inputHint = CHARS[player.type].hasDomain ? "[G - DOMAIN READY]" : "[G - ULTIMATE READY]";
-    document.getElementById("ui-ult").innerText = `${label}: ${Math.floor(player.ult)}% ${player.ult >= 100 ? inputHint : ''}`;
-    document.getElementById("ui-item").innerText = `EQUIPPED ARTIFACT: ${ITEMS[equippedItem].dName}`;
-}
-
-function engineMainLoop() {
-    globalFrames++;
-    player.update();
-    entities.forEach(e => e.update());
-    updateProjectiles();
-    if (activeDomain) {
-        activeDomain.life--;
-        if (activeDomain.radius < activeDomain.maxRadius) activeDomain.radius += 20;
-        if (activeDomain.life <= 0) activeDomain = null;
-    }
-    renderScene();
-    processUI();
-    requestAnimationFrame(engineMainLoop);
-}
-
-function populateCharacterSelection() {
-    const list = document.getElementById("char-list");
-    list.innerHTML = "";
-    Object.keys(CHARS).forEach(k => {
-        let btn = document.createElement("button");
-        btn.style.borderLeft = `6px solid ${CHARS[k].col}`;
-        let subText = CHARS[k].hasDomain ? `Domain: ${CHARS[k].domain}` : `Ultimate: ${CHARS[k].domain}`;
-        btn.innerHTML = `${CHARS[k].name}<br><span style='font-size:10px; color:#aaa;'>${subText}</span>`;
-        btn.onclick = () => {
-            selectedCharacter = k;
-            document.getElementById("ui-char").innerText = `SORCERER: ${CHARS[k].name.toUpperCase()}`;
-            updateMobileLabels(k);
-            showMenu('main-menu');
-        };
-        list.appendChild(btn);
-    });
+function triggerImpactFrame(x, y, color) {
+    impactFrames.push({ x: x - camX, y: y, r: 10, maxR: 90, opacity: 1, color: color });
 }
 
 function showMenu(id) {
-    document.getElementById("main-menu").classList.add("hidden");
-    document.getElementById("char-menu").classList.add("hidden");
-    document.getElementById("vault-menu").classList.add("hidden");
+    document.querySelectorAll(".menu").forEach(m => m.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
+    document.getElementById("ui").classList.add("hidden");
 }
 
-function selectItem(key) { equippedItem = key; showMenu('main-menu'); }
+function selectItem(key) {
+    equippedItem = key;
+    document.getElementById("ui-item").innerText = `EQUIPPED: ${ITEMS[key].dName}`;
+    showMenu('main-menu');
+}
+
 function openMenuFromGame() {
-    document.getElementById("ui").classList.add("hidden");
-    document.getElementById("main-menu").classList.remove("hidden");
-    document.getElementById("mobile-dpad").style.display = "none";
-    document.getElementById("mobile-actions").style.display = "none";
+    activeDomain = null;
+    showMenu('main-menu');
+}
+
+function populateRoster() {
+    let container = document.getElementById("char-list");
+    container.innerHTML = "";
+    Object.keys(CHARS).forEach(k => {
+        let btn = document.createElement("button");
+        btn.className = "tool-btn";
+        btn.style.borderLeft = `5px solid ${CHARS[k].col}`;
+        btn.innerHTML = `${CHARS[k].name.toUpperCase()}<br><span style='font-size:10px; color:#aaa;'>Primary: ${CHARS[k].m1} | Ult: ${CHARS[k].domain}</span>`;
+        btn.onclick = () => { selectedCharacter = k; showMenu('main-menu'); };
+        container.appendChild(btn);
+    });
 }
 
 function startArenaMode(mode) {
     currentMode = mode;
-    document.getElementById("main-menu").classList.add("hidden");
+    document.querySelectorAll(".menu").forEach(m => m.classList.add("hidden"));
     document.getElementById("ui").classList.remove("hidden");
-    if (window.innerWidth <= 1024) {
-        document.getElementById("mobile-dpad").style.display = "block";
-        document.getElementById("mobile-actions").style.display = "grid";
-    }
-    kills = 0; entities = []; activeDomain = null;
+
+    let cData = CHARS[selectedCharacter];
+    document.getElementById("ui-char").innerText = `SORCERER: ${cData.name.toUpperCase()}`;
+    document.getElementById("ui-char").style.color = cData.col;
+    document.getElementById("lbl-e").innerText = cData.m1.toUpperCase();
+    document.getElementById("lbl-r").innerText = cData.m2.toUpperCase();
+
+    kills = 0;
+    entities = [];
+    particles = [];
+    projectNails = [];
+    impactFrames = [];
     generateShinjukuMap();
+
     player = new Entity(300, GROUND - 100, selectedCharacter, false);
-    updateMobileLabels(selectedCharacter);
     
     if (mode === "training") {
-        entities.push(new Entity(600, GROUND - 100, "sukuna", true, true));
+        document.getElementById("arena-title").innerText = "TRAINING ARENA (PASSIVE)";
+        entities.push(new Entity(550, GROUND - 100, "sukuna", true, true));
     } else {
-        entities.push(new Entity(750, GROUND - 100, "sukuna", true));
-        entities.push(new Entity(1200, GROUND - 100, "gojo", true));
-        entities.push(new Entity(1500, GROUND - 100, "mahito", true));
+        document.getElementById("arena-title").innerText = "SHINJUKU INCIDENT FIELD";
+        entities.push(new Entity(650, GROUND - 100, "sukuna", true));
+        entities.push(new Entity(950, GROUND - 100, "mahito", true));
     }
+
     try { if (audioCtx.state === 'suspended') audioCtx.resume(); } catch(e){}
+    playSound(300, 'sine', 0.4, 0.1, 150);
 }
 
+// --- KEYBOARD SETUP ---
 window.addEventListener('keydown', e => {
-    let k = e.key.toLowerCase(); keys[k] = true;
-    if(k === 'm') keys['m1'] = true;
-    if(k === '0') keys['0'] = true;
+    let k = e.key.toLowerCase();
+    keys[k] = true;
+    if([' ', 'w', 'g', 'e', 'r', '0'].includes(k)) e.preventDefault();
 });
-window.addEventListener('keyup', e => {
-    let k = e.key.toLowerCase(); keys[k] = false;
-    if(k === 'm') keys['m1'] = false;
-    if(k === '0') keys['0'] = false;
-});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// --- MOBILE INTERACTION CONTROL PAD TRACKING LOOPS ---
+let joyStart = { x: 0, y: 0 };
+let joyMove = { x: 0, y: 0 };
+let joyActive = false;
 
 const dpad = document.getElementById("mobile-dpad");
 const joystick = document.getElementById("mobile-joystick");
-let joystickActive = false;
-dpad.addEventListener('touchstart', () => joystickActive = true);
-dpad.addEventListener('touchmove', (e) => {
-    if (!joystickActive) return; e.preventDefault();
-    const touch = e.touches[0]; const rect = dpad.getBoundingClientRect();
-    let dx = touch.clientX - (rect.left + rect.width/2);
-    let dist = Math.min(Math.abs(dx), 45);
-    joystick.style.left = `${45 + (Math.sign(dx)*dist)}px`;
-    keys['a'] = dx < -15; keys['d'] = dx > 15;
+
+dpad.addEventListener('touchstart', e => {
+    joyActive = true;
+    let t = e.touches[0];
+    joyStart = { x: t.clientX, y: t.clientY };
+}, { passive: true });
+
+dpad.addEventListener('touchmove', e => {
+    if (!joyActive) return;
+    let t = e.touches[0];
+    let dx = t.clientX - joyStart.x;
+    let dy = t.clientY - joyStart.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    let maxDist = 45;
+
+    if (dist > maxDist) {
+        dx = (dx / dist) * maxDist;
+        dy = (dy / dist) * maxDist;
+    }
+
+    joystick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    keys['a'] = dx < -15;
+    keys['d'] = dx > 15;
 });
+
 dpad.addEventListener('touchend', () => {
-    joystickActive = false; joystick.style.left = "45px"; keys['a'] = false; keys['d'] = false;
+    joyActive = false;
+    joystick.style.transform = "translate(0px, 0px)";
+    keys['a'] = false;
+    keys['d'] = false;
 });
 
-function mapMobileAction(elementId, actionKey) {
-    const el = document.getElementById(elementId);
-    el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[actionKey] = true; });
-    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[actionKey] = false; });
+function bindMobileButton(id, keyTarget) {
+    let el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', e => { e.preventDefault(); keys[keyTarget] = true; });
+    el.addEventListener('touchend', e => { e.preventDefault(); keys[keyTarget] = false; });
 }
-mapMobileAction('mb-up', ' '); mapMobileAction('mb-m1', 'm1'); mapMobileAction('mb-e', 'e');
-mapMobileAction('mb-r', 'r'); mapMobileAction('mb-g', 'g'); mapMobileAction('mb-bf', '0');
 
-populateCharacterSelection();
-generateShinjukuMap();
-player = new Entity(300, GROUND - 100, "yuji", false);
-updateMobileLabels("yuji");
-engineMainLoop();
+bindMobileButton("mb-up", "w");
+bindMobileButton("mb-m1", "m1");
+bindMobileButton("mb-e", "e");
+bindMobileButton("mb-r", "r");
+bindMobileButton("mb-g", "g");
+bindMobileButton("mb-bf", "0");
+
+// --- PRIMARY GAME REFRESH LOOP ---
+function step() {
+    globalFrames++;
+    ctx.clearRect(0, 0, W, H);
+
+    if (shake > 0) {
+        ctx.save();
+        let sx = (Math.random() * 2 - 1) * shake;
+        let sy = (Math.random() * 2 - 1) * shake;
+        ctx.translate(sx, sy);
+        shake *= 0.9;
+        if (shake < 0.2) shake = 0;
+    }
+
+    if (player) {
+        let targetCamX = player.x - W / 2;
+        camX += (targetCamX - camX) * 0.08;
+        if (camX < 0) camX = 0;
+        if (camX > 3500 - W) camX = 3500 - W;
+    }
+
+    // Render Environment Background Lines
+    ctx.fillStyle = "#0c0d16";
+    mapDebris.forEach(b => {
+        ctx.fillRect(b.x - camX, b.y, b.w, b.h);
+        ctx.strokeStyle = "rgba(255,255,255,0.03)";
+        ctx.strokeRect(b.x - camX, b.y, b.w, b.h);
+    });
+
+    // Draw Ground
+    ctx.strokeStyle = activeDomain ? "#ffffff" : "#ff3366";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND);
+    ctx.lineTo(W, GROUND);
+    ctx.stroke();
+
+    // Render Domain Shells
+    if (activeDomain) {
+        activeDomain.life--;
+        if (activeDomain.radius < activeDomain.maxRadius) activeDomain.radius += 18;
+
+        let grad = ctx.createRadialGradient(activeDomain.x - camX, activeDomain.y, 10, activeDomain.x - camX, activeDomain.y, activeDomain.radius);
+        let dCol = CHARS[activeDomain.type].col;
+        grad.addColorStop(0, "rgba(5,6,12,0.85)");
+        grad.addColorStop(0.8, "rgba(10,15,30,0.95)");
+        grad.addColorStop(1, dCol);
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(activeDomain.x - camX, activeDomain.y, activeDomain.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        if (globalFrames % 10 === 0 && activeDomain.type === 'sukuna') {
+            entities.concat([player]).forEach(t => {
+                if (t && !t.dead && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
+                    t.takeDmg(3, activeDomain.owner);
+                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0033", 4, 'slash');
+                }
+            });
+        }
+
+        if (activeDomain.life <= 0) activeDomain = null;
+    }
+
+    // Update Entities
+    if (player) {
+        player.update();
+        player.drawStickFigure(ctx, camX);
+        
+        document.getElementById("hp-bar").style.width = `${(player.hp / player.maxHp) * 100}%`;
+        document.getElementById("ui-ult").innerText = `CURSED ENERGY OUTPUT: ${Math.floor(player.ult)}% ${player.ult >= 100 ? '[G - READY]' : '[G]'}`;
+        document.getElementById("ui-kills").innerText = kills;
+
+        let badgeE = document.getElementById("cd-e");
+        let badgeR = document.getElementById("cd-r");
+        badgeE.innerText = player.cooldowns.s1 > 0 ? `CD: ${Math.ceil(player.cooldowns.s1/60)}s` : "READY";
+        badgeE.style.color = player.cooldowns.s1 > 0 ? "#ff3366" : "#45f3ff";
+        badgeR.innerText = player.cooldowns.s2 > 0 ? `CD: ${Math.ceil(player.cooldowns.s2/60)}s` : "READY";
+        badgeR.style.color = player.cooldowns.s2 > 0 ? "#ff3366" : "#45f3ff";
+
+        let cl = document.getElementById("ui-clash");
+        if (player.bfWindowTimer > 0) {
+            cl.innerText = `BLACK FLASH TIMING WINDOW OPEN [HIT '0' or TAP FLASH]`;
+            cl.style.textShadow = "0 0 8px #ff0055";
+        } else {
+            cl.innerText = "";
+        }
+    }
+
+    entities.forEach(e => {
+        e.update();
+        e.drawStickFigure(ctx, camX);
+        
+        // Draw Bot HP Bar directly over their head node
+        if (!e.dead) {
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(e.x - camX - 6, e.y - 18, e.w + 12, 5);
+            ctx.fillStyle = CHARS[e.type].col;
+            ctx.fillRect(e.x - camX - 6, e.y - 18, (e.hp / e.maxHp) * (e.w + 12), 5);
+        }
+    });
+
+    // Update Projectile Nail Structures
+    projectNails.forEach(n => {
+        if (!n.alive) return;
+        n.x += n.vx;
+        n.y += n.vy;
+        ctx.fillStyle = n.col;
+        ctx.fillRect(n.x - camX, n.y, 8, 3);
+
+        let targets = n.owner === player ? entities : [player];
+        targets.forEach(t => {
+            if (t && !t.dead && n.alive) {
+                if (n.x > t.x && n.x < t.x + t.w && n.y > t.y && n.y < t.y + t.h) {
+                    t.takeDmg(10, n.owner);
+                    n.alive = false;
+                    triggerImpactFrame(t.x, t.y, n.col);
+                }
+            }
+        });
+
+        if (Math.abs(n.x - player.x) > 1200) n.alive = false;
+    });
+
+    // Handle Particle System
+    particles.forEach(p => {
+        p.life--;
+        p.x += p.vx;
+        p.y += p.vy;
+        ctx.fillStyle = p.color;
+        let size = p.type === 'shatter' ? Math.max(1, (p.life/p.maxLife)*6) : Math.max(1, (p.life/p.maxLife)*4);
+        ctx.fillRect(p.x - camX, p.y, size, size);
+    });
+    particles = particles.filter(p => p.life > 0);
+
+    // Impact shock rings layout calculation
+    impactFrames.forEach(f => {
+        f.r += (f.maxR - f.r) * 0.12;
+        f.opacity -= 0.05;
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 3;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, f.opacity);
+        ctx.beginPath();
+        ctx.arc(f.x, f.y + 30, f.r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    });
+    impactFrames = impactFrames.filter(f => f.opacity > 0);
+
+    if (shake > 0) ctx.restore();
+
+    requestAnimationFrame(step);
+}
+
+populateRoster();
+requestAnimationFrame(step);
 </script>
-</body>
-</html>
