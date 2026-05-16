@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Jujutsu Shenanigans METAMORPHOSIS Final</title>
+    <title>JujutsuJam</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; user-select: none; }
-        #gameCanvas { display: block; background: #87CEEB; }
-        .menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(5, 5, 12, 0.95); border: 3px solid #005f73; padding: 25px; border-radius: 6px; color: #fff; text-align: center; z-index: 10; width: 360px; box-shadow: 0 0 35px rgba(0, 95, 115, 0.6); }
-        button { background: #005f73; color: #fff; border: 1px solid #94d2bd; padding: 10px; margin: 6px 0; cursor: pointer; width: 100%; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
-        button:hover { background: #0a9396; }
-        #ui { position: absolute; top: 15px; left: 15px; color: #fff; pointer-events: none; width: calc(100% - 30px); display: flex; justify-content: space-between; text-shadow: 2px 2px 4px #000; font-size: 16px; z-index: 5;}
+        #gameCanvas { display: block; background: #0b0c10; }
+        .menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(5, 5, 15, 0.96); border: 3px solid #1f2833; padding: 25px; border-radius: 8px; color: #fff; text-align: center; z-index: 10; width: 380px; box-shadow: 0 0 35px rgba(102, 252, 241, 0.3); }
+        button { background: #1f2833; color: #66fcf1; border: 1px solid #45f3ff; padding: 10px; margin: 6px 0; cursor: pointer; width: 100%; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; transition: all 0.2s; }
+        button:hover { background: #45f3ff; color: #000; box-shadow: 0 0 15px #45f3ff; }
+        #ui { position: absolute; top: 15px; left: 15px; color: #fff; pointer-events: none; width: calc(100% - 30px); display: flex; justify-content: space-between; text-shadow: 2px 2px 4px #000; font-size: 15px; z-index: 5;}
         .hidden { display: none !important; }
         #flash-alert { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); color: #ff0055; font-size: 70px; font-weight: 900; pointer-events: none; text-shadow: 0 0 20px #000, 0 0 10px #ff0055; opacity: 0; transition: opacity 0.1s; font-family: 'Impact', sans-serif; letter-spacing: 4px; z-index: 8; }
-        #domain-alert { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 45px; font-weight: bold; pointer-events: none; text-shadow: 0 0 15px #000; opacity: 0; text-transform: uppercase; letter-spacing: 6px; z-index: 8; text-align: center;}
+        #domain-alert { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 45px; font-weight: bold; pointer-events: none; text-shadow: 0 0 15px #000, 0 0 25px rgba(255,255,255,0.5); opacity: 0; text-transform: uppercase; letter-spacing: 6px; z-index: 8; text-align: center;}
+        .shop-flex { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; margin: 5px 0; border-radius: 4px; border: 1px solid rgba(102, 252, 241, 0.2); }
     </style>
 </head>
 <body>
@@ -22,43 +23,68 @@
     
     <div id="ui">
         <div>
-            <div id="ui-char" style="font-weight: bold; color: #94d2bd;">CHARACTER: HAKARI</div>
-            <div style="width:220px; height:14px; background:rgba(0,0,0,0.6); border:1px solid #fff; margin: 4px 0;">
-                <div id="hp-bar" style="width:100%; height:100%; background:#00ff00;"></div>
+            <div id="ui-char" style="font-weight: bold; color: #45f3ff;">SORCERER: READY</div>
+            <div style="width:240px; height:16px; background:rgba(0,0,0,0.7); border:2px solid #66fcf1; margin: 4px 0; border-radius: 4px; overflow: hidden;">
+                <div id="hp-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #00ffcc, #00ff66);"></div>
             </div>
-            <div id="ui-ult">ULTIMATE: 0% [G]</div>
-            <div id="ui-bf" style="color: #ff0055; font-size: 13px;">BF Combo: 0/5 (Ready)</div>
+            <div id="ui-ult" style="color: #ff00cc;">ULTIMATE: 0% [G]</div>
+            <div id="ui-bf" style="color: #ff0055; font-size: 13px;">BF Combo Track: 0/5</div>
+            <div id="ui-weapon" style="color: #ffb703; font-weight: bold; margin-top: 4px; font-size: 13px;">WEAPON: FISTS (+0% Dmg)</div>
         </div>
         <div style="text-align:right; font-family: monospace;">
             <div id="ui-timer" style="font-size: 18px; color: #ee9b00;">BOSS SPAWN: 6:00</div>
-            <div>STREET KILLS: <span id="ui-kills" style="color:#94d2bd; font-weight:bold;">0</span></div>
-            <div id="ui-clash" style="color: #ffb703; font-weight: bold;"></div>
+            <div>STREET KILLS: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">0</span></div>
+            <div>JUJUTSU COINS: <span id="ui-coins" style="color:#00ffcc; font-weight:bold;">0</span></div>
+            <div id="ui-clash" style="color: #ffb703; font-weight: bold; font-size:13px; margin-top:4px;"></div>
+            <button onclick="openMenuFromGame()" style="width: auto; padding: 4px 10px; font-size: 11px; margin-top: 5px; background: #ae2012; border-color: #e63946;">RETREAT TO MENU</button>
         </div>
     </div>
 
+    <!-- MAIN MENU -->
     <div id="main-menu" class="menu">
-        <h1 style="color:#ee9b00; margin-top:0; letter-spacing: 2px;">JJS: ROSTER MAX</h1>
-        <button onclick="showMenu('char-menu')">Switch Sorcerer</button>
-        <button onclick="showMenu('tutorial')">View Commands</button>
-        <button onclick="closeMenus()" style="background:#ae2012; border-color: #e63946;">DEPLOY TO SHINJUKU</button>
+        <h1 style="color:#45f3ff; margin-top:0; letter-spacing: 3px; text-shadow: 0 0 10px #45f3ff;">JUJUTSUJAM</h1>
+        <button onclick="showMenu('char-menu')">Select Sorcerer</button>
+        <button onclick="showMenu('shop-menu')">Weapon Arsenal Shop</button>
+        <button onclick="showMenu('tutorial')">View Protocols</button>
+        <button onclick="closeMenus()" style="background:#ae2012; border-color: #e63946; margin-top:15px; font-size:16px;">ENTER SHINJUKU METROPOLIS</button>
     </div>
 
+    <!-- ROSTER MENU -->
     <div id="char-menu" class="menu hidden">
-        <h2 style="color:#94d2bd;">SELECT YOUR SOUL</h2>
+        <h2 style="color:#66fcf1; margin-top:0;">SELECT YOUR SOUL</h2>
         <div id="char-list" style="max-height: 280px; overflow-y: auto; padding-right: 5px;"></div>
         <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 10px;">RETURN</button>
     </div>
 
+    <!-- WEAPON GACHA SHOP -->
+    <div id="shop-menu" class="menu hidden">
+        <h2 style="color:#ffb703; margin-top:0;">CURSED WEAPONRY</h2>
+        <p style="font-size: 12px; color: #ccc;">Acquire weapon rolls using Coins earned from executing hostiles.</p>
+        <div class="shop-flex">
+            <div><strong>Random Gacha Roll</strong><br><span style="font-size:11px; color:#aaa;">Weapon Buff Multiplier Upgrade</span></div>
+            <button onclick="buyWeaponRoll()" style="width:110px; margin:0; padding:6px; background:#10b981; border-color:#34d399;">5 COINS</button>
+        </div>
+        <div style="margin-top: 15px; text-align: left; font-size: 11px; color: #888; border-top: 1px solid #333; padding-top: 10px;">
+            <strong>AVAILABLE CACHE:</strong><br>
+            • Jet Black Sword (+15% Damage)<br>
+            • Nanami's Wrapped Cleaver (+20% Critical Ratio)<br>
+            • Split Soul Katana (+30% Durability Bypass)<br>
+            • Playful Cloud (+45% Supreme Kinetic Force)
+        </div>
+        <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 15px;">RETURN</button>
+    </div>
+
+    <!-- TUTORIAL -->
     <div id="tutorial" class="menu hidden">
-        <h3 style="margin-top:0;">COMMAND LOG</h3>
-        <p style="text-align:left; font-size:12px; line-height:1.4;">
-            <strong>A / D :</strong> Run Left / Right<br>
-            <strong>W / SPACE :</strong> Jump Airwards<br>
-            <strong>CLICK (M1) :</strong> Basic Strike Range<br>
-            <strong>E / R :</strong> Cursed Techniques<br>
-            <strong>G :</strong> Domain Expansion (At 100% Ult)<br>
-            <strong>Key '0' :</strong> Black Flash Combo System<br><br>
-            <span style="color:#d4a373;"><strong>Naoya Abilities:</strong> E: Projection Dash (24fps Freeze Blitz) | R: High-Speed Counter.</span>
+        <h3 style="margin-top:0; color:#45f3ff;">TACTICAL MANUAL</h3>
+        <p style="text-align:left; font-size:12px; line-height:1.5; color:#e0e0e0;">
+            <strong>A / D :</strong> Velocity Left / Right Vector<br>
+            <strong>W / SPACE :</strong> Spatial Vertical Jump Ascent<br>
+            <strong>CLICK (M1) :</strong> Unleash Core Cursed Weapon Strings<br>
+            <strong>E / R :</strong> Execute Specialized Innate Techniques<br>
+            <strong>G :</strong> Domain Expansion Barrier (At 100% Ult Power)<br>
+            <strong>Key '0' :</strong> Spark Black Flash Kinetic Synchronicity<br><br>
+            <span style="color:#ff4d6d;"><strong>Nobara Kit:</strong> Basic strikes embed nails (Max 3 above head). More nails = passively scaling damage output. <strong>[E] Resonance:</strong> Damages self slightly, inflicts colossal rupture on nail-embedded foes. <strong>[R] Hairpin:</strong> Swings straw doll, detaching active nails into bursting shrapnel vectors.</span>
         </p>
         <button onclick="showMenu('main-menu')" style="background:#3d5a80;">RETURN</button>
     </div>
@@ -66,7 +92,7 @@
     <canvas id="gameCanvas"></canvas>
 
 <script>
-// --- CORE AUDIO SYNTHESIZER ---
+// --- AUDIO SYNTH PRODUCER ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(freq, type, duration, vol=0.1, slideTo=0) {
     try {
@@ -74,50 +100,71 @@ function playSound(freq, type, duration, vol=0.1, slideTo=0) {
         const gain = audioCtx.createGain();
         osc.type = type;
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        if(slideTo > 0) {
-            osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
-        }
+        if(slideTo > 0) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
         gain.gain.setValueAtTime(vol, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
     } catch(e){}
 }
 
-// --- CONFIG & GLOBAL PARAMETERS ---
+// --- CONFIG & STRUCTURAL PROPERTIES ---
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 let W = canvas.width = window.innerWidth;
 let H = canvas.height = window.innerHeight;
-const GROUND = H - 90;
+const GROUND = H - 120;
 
 const CHARS = {
+    nobara:   { col: "#ff4d6d", domain: "Innate Resonance Layer", s1: "Resonance Voodoo", s2: "Hairpin Explode" },
+    nanami:   { col: "#ffb703", domain: "Overtime Horizon Contract", s1: "7:3 Ratio Strike", s2: "Collapse Blindspot" },
     naoya:    { col: "#d4a373", domain: "Time-Cell Moon Palace", s1: "Projection Dash", s2: "Frame Break" },
-    hakari:   { col: "#ffb703", domain: "Idle Death Gamble", s1: "Shutter Wall", s2: "Pachinko Ball" },
+    hakari:   { col: "#00f5d4", domain: "Idle Death Gamble", s1: "Shutter Wall", s2: "Pachinko Ball" },
     gojo:     { col: "#48cae4", domain: "Unlimited Void", s1: "Lapse Blue", s2: "Reversal Red" },
     sukuna:   { col: "#9b2226", domain: "Malevolent Shrine", s1: "Dismantle", s2: "Cleave" },
-    toji:     { col: "#212529", domain: "Inverted Arena", s1: "Spear Thrust", s2: "Zero Dash", weapon: "ISOH" },
+    toji:     { col: "#212529", domain: "Inverted Arena", s1: "Spear Thrust", s2: "Zero Dash" },
     todo:     { col: "#7209b7", domain: "Takada Concert", s1: "Boogie Woogie", s2: "Playful Strike" },
     mahito:   { col: "#a2d2ff", domain: "Self-Embodiment of Perfection", s1: "Soul Repulsion", s2: "Body Repel Spikes" },
     higuruma: { col: "#adb5bd", domain: "Deadly Sentencing", s1: "Gavel Strike", s2: "Guilty Verdict" },
     yuji:     { col: "#fb8500", domain: "Manji Combat", s1: "Divergent Fist", s2: "Knee Strike" },
-    kashimo:  { col: "#ccff33", domain: "Phantom Beast Amber", s1: "Electric Bolt", s2: "Lightning Charge" },
-    hanami:   { col: "#40916c", domain: "Ceremonial Light", s1: "Spike Field", s2: "Root Entangle" },
-    megumi:   { col: "#03045e", domain: "Shadow Garden", s1: "Divine Dog", s2: "Nue Shock" }
+    kashimo:  { col: "#ccff33", domain: "Phantom Beast Amber", s1: "Electric Bolt", s2: "Lightning Charge" }
+};
+
+const WEAPONS = {
+    fists: { name: "Fists", dmgMod: 1.0, col: "#ffffff" },
+    jetblack: { name: "Jet Black Sword", dmgMod: 1.15, col: "#3a0ca3" },
+    nanamiCleaver: { name: "Wrapped Cleaver", dmgMod: 1.20, col: "#f77f00" },
+    splitSoul: { name: "Split Soul Katana", dmgMod: 1.30, col: "#7209b7" },
+    playfulCloud: { name: "Playful Cloud", dmgMod: 1.45, col: "#e63946" }
 };
 
 let entities = [];
 let particles = [];
+let environmentalDetails = [];
 let player;
 let bossInstance = null;
 let camX = 0;
 let shake = 0;
 let bossTimer = 360; 
 let kills = 0;
+let coins = 0;
 let globalFrames = 0;
 let activeDomain = null; 
+let ownedWeapon = "fists";
+
+// Generate Interactive City Skyscraper Backdrop Structural Metadata
+function initEnvironment() {
+    environmentalDetails = [];
+    for(let i=0; i<35; i++) {
+        environmentalDetails.push({
+            x: i * 110 + Math.random()*40,
+            w: 70 + Math.random()*80,
+            h: 250 + Math.random()*350,
+            col: ["#141519", "#1a1c23", "#0f1013", "#22252c"][Math.floor(Math.random()*4)],
+            neon: Math.random() < 0.6 ? ["#00f5d4", "#ff0055", "#48cae4", "#ffb703"][Math.floor(Math.random()*4)] : null
+        });
+    }
+}
 
 class Entity {
     constructor(x, y, type, isBot = false) {
@@ -132,45 +179,39 @@ class Entity {
         this.bfCount = 0;
         this.lastBfTime = 0;
 
-        // Custom states
+        // Specialized Status Registers
         this.isJackpot = false;
         this.jackpotTimer = 0;
-        this.projectionFrames = 0; // Naoya speed state variable
+        this.projectionFrames = 0;
+        this.embeddedNails = 0; // Tracks Nobara pins pushed into targets
 
         if (type === 'heian_sukuna') {
-            this.maxHp = 700; this.hp = 700;
-            this.w = 65; this.h = 100;
+            this.maxHp = 800; this.hp = 800;
+            this.w = 70; this.h = 105;
         }
     }
 
     update() {
         if (this.dead) return;
 
-        // Hakari Jackpot State Cycle
+        // Hakari Infinite CE Flow Cycle
         if (this.type === 'hakari' && this.isJackpot) {
-            this.hp = Math.min(100, this.hp + 0.4);
+            this.hp = Math.min(100, this.hp + 0.3);
             this.ult = 100;
             this.jackpotTimer--;
             if (this.jackpotTimer <= 0) this.isJackpot = false;
-            if(globalFrames % 3 === 0) spawnPart(this.x + this.w/2, this.y + this.h/2, "#ffffff", 6);
+            if(globalFrames % 2 === 0) spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ffffff", 5, 'fountain');
         }
 
-        // --- NAOYA SPECIFIC KINEMATICS OVERRIDE ---
+        // Naoya Kinematic Subroutine Exception Override
         if (this.type === 'naoya' && this.projectionFrames > 0) {
             this.projectionFrames--;
-            this.vy = 0; // Negate gravity completely during frame movement loop
-            this.vx = this.facing * 18; // Massive speed factor multiplier
-            
-            // Generate visual frame echo trails
-            if (globalFrames % 2 === 0) {
-                spawnPart(this.x + this.w/2, this.y + this.h/2, "rgba(212, 163, 115, 0.4)", 12);
-            }
-            
-            // Hitbox damage check while passing through enemies
-            this.executeSilentHitboxCheck(22, 50);
+            this.vy = 0;
+            this.vx = this.facing * 19;
+            if (globalFrames % 2 === 0) spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "rgba(212,163,115,0.3)", 10, 'spark');
+            this.executeSilentHitboxSweep(7, 60);
         } else {
-            // Basic Standard Gravity Kinematics
-            this.vy += 0.75;
+            this.vy += 0.70;
             this.vx *= 0.84;
         }
 
@@ -183,7 +224,7 @@ class Entity {
         }
 
         if (this.x < 0) this.x = 0;
-        if (this.x > 3000) this.x = 3000;
+        if (this.x > 3500) this.x = 3500;
 
         Object.keys(this.cooldowns).forEach(k => { if(this.cooldowns[k] > 0) this.cooldowns[k]--; });
 
@@ -192,26 +233,21 @@ class Entity {
     }
 
     processInput() {
-        if (keys['a']) { this.vx = -5.5; this.facing = -1; }
-        if (keys['d']) { this.vx = 5.5; this.facing = 1; }
-        if ((keys['w'] || keys[' ']) && this.y >= GROUND - this.h) { this.vy = -14; playSound(220, 'triangle', 0.1, 0.05); }
-        if (keys['m1']) this.executeAttack('m1', this.type === 'toji' ? 12 : 8, this.type === 'toji' ? 90 : 65);
+        if (keys['a']) { this.vx = -5.8; this.facing = -1; }
+        if (keys['d']) { this.vx = 5.8; this.facing = 1; }
+        if ((keys['w'] || keys[' ']) && this.y >= GROUND - this.h) { this.vy = -14.5; playSound(260, 'triangle', 0.1, 0.05); }
+        if (keys['m1']) this.executeBasicStrike();
         if (keys['e']) this.executeTechnique1();
-        if (keys['r']) this.executeAttack('s2', 24, 160);
+        if (keys['r']) this.executeTechnique2();
         if (keys['g'] && this.ult >= 100) this.triggerDomainExpansion();
         if (keys['0']) this.executeBlackFlashAction();
     }
 
     processAI() {
         let target = null;
-
-        if (bossInstance && !bossInstance.dead) {
-            if (this.type !== 'heian_sukuna') {
-                target = bossInstance; 
-            }
-        }
-
-        if (!target) {
+        if (bossInstance && !bossInstance.dead && this.type !== 'heian_sukuna') {
+            target = bossInstance;
+        } else {
             let targets = entities.filter(e => e !== this && !e.dead);
             if (!player.dead) targets.push(player);
             if (targets.length > 0) {
@@ -224,124 +260,247 @@ class Entity {
             let dist = target.x - this.x;
             this.facing = dist > 0 ? 1 : -1;
 
-            if (Math.abs(dist) > 55 && this.projectionFrames === 0) {
-                this.vx = this.facing * 3.8;
+            if (Math.abs(dist) > 60 && this.projectionFrames === 0) {
+                this.vx = this.facing * 4.0;
             }
 
-            if (globalFrames % 25 === 0 && Math.random() < 0.7) {
+            if (globalFrames % 30 === 0 && Math.random() < 0.65) {
                 let absD = Math.abs(dist);
-                if (absD < 70) this.executeAttack('m1', 8, 65);
-                else if (absD < 250) this.executeTechnique1();
-                
-                if (this.ult >= 100 && Math.random() < 0.3) this.triggerDomainExpansion();
+                if (absD < 75) {
+                    this.executeBasicStrike();
+                } else if (absD < 240) {
+                    this.executeTechnique1();
+                }
+                if (this.ult >= 100 && Math.random() < 0.25) this.triggerDomainExpansion();
             }
         }
+    }
+
+    executeBasicStrike() {
+        if (this.cooldowns.m1 > 0) return;
+        this.cooldowns.m1 = 15;
+
+        // Base Damage balanced down to make fights feel longer & competitive
+        let baseDmg = 4.5; 
+        let range = 65;
+
+        // Apply Weapon Buffs if User is Player
+        if (!this.isBot) {
+            baseDmg *= WEAPONS[ownedWeapon].dmgMod;
+            if (ownedWeapon === "playfulCloud") range = 90;
+        }
+
+        // Nobara Nail Multiplier Scaling Calculation Module
+        if (this.type === 'nobara' && !this.isBot) {
+            baseDmg += (this.embeddedNails * 1.5);
+        }
+
+        let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+        let scanList = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
+        let hitRegistered = false;
+
+        spawnVisualEffect(this.x + (this.facing*range/2) + this.w/2, this.y + this.h/2, CHARS[this.type].col, 15, 'slash');
+
+        scanList.forEach(t => {
+            if (t && !t.dead && t !== this) {
+                if (t.x + t.w > hitX && t.x < hitX + range && t.y + t.h > this.y && t.y < this.y + this.h) {
+                    t.takeDmg(baseDmg, this);
+                    hitRegistered = true;
+
+                    // Nobara nail embedding architecture trigger
+                    if (this.type === 'nobara' && !this.isBot) {
+                        if (this.embeddedNails < 3) {
+                            this.embeddedNails++;
+                            t.embeddedNails = Math.min(3, (t.embeddedNails || 0) + 1);
+                            playSound(400, 'square', 0.15, 0.1);
+                        }
+                    }
+                }
+            }
+        });
+
+        playSound(hitRegistered ? 140 : 400, hitRegistered ? 'triangle' : 'sine', 0.12, 0.06);
+        if (hitRegistered && !this.isBot) shake = 5;
     }
 
     executeTechnique1() {
         if (this.cooldowns.s1 > 0) return;
 
-        if (this.type === 'naoya') {
-            // --- NAOYA SIGNATURE TECHNIQUE: PROJECTION DASH ---
-            this.cooldowns.s1 = 80; // 24fps cooldown clock cycle
-            this.projectionFrames = 15; // Number of update cycles to sprint at Mach speed
-            playSound(800, 'sine', 0.2, 0.15, 1200); // Shrill speed accent
-            shake = 6;
-        } else if (this.type === 'todo') {
-            // --- TODO SIGNATURE TECHNIQUE: BOOGIE WOOGIE ---
-            this.cooldowns.s1 = 60; 
-            let targets = entities.filter(e => e !== this && !e.dead);
-            if (this.isBot && !player.dead) targets.push(player);
-            else if (!this.isBot) targets = entities.filter(e => !e.dead);
+        if (this.type === 'nobara') {
+            // RESONANCE MOVEMENT KIT IMPLEMENTATION
+            this.cooldowns.s1 = 120;
+            // Self Damage Penalty Subroutine
+            this.takeDmg(3, this); 
+            playSound(180, 'sawtooth', 0.4, 0.15);
+            shake = 10;
 
-            if (targets.length > 0) {
-                let choice = targets[Math.floor(Math.random() * targets.length)];
-                playSound(600, 'square', 0.1, 0.2);
-                for(let i=0; i<10; i++) {
-                    spawnPart(this.x + this.w/2, this.y + this.h/2, CHARS.todo.col, 6);
-                    spawnPart(choice.x + choice.w/2, choice.y + choice.h/2, "#fff", 6);
+            let scanList = entities.filter(e => !e.dead && (e.embeddedNails > 0));
+            scanList.forEach(t => {
+                let damageQuantum = 22 + (t.embeddedNails * 8);
+                t.takeDmg(damageQuantum, this);
+                spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0055", 35, 'shatter');
+                t.embeddedNails = 0; 
+            });
+            this.embeddedNails = 0; // Reset active nails count over character head
+        }
+        else if (this.type === 'nanami') {
+            // 7:3 RATIO CRITICAL INNATE CUT
+            this.cooldowns.s1 = 80;
+            let range = 110;
+            let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+            let targets = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
+            
+            spawnVisualEffect(this.x + (this.facing * 45), this.y + 30, "#ffb703", 20, 'grid');
+            targets.forEach(t => {
+                if (!t.dead && t !== this && t.x + t.w > hitX && t.x < hitX + range) {
+                    // Overtime/Ratio amplification simulation
+                    let criticalFactor = (Math.random() < 0.73) ? 18 : 8; 
+                    t.takeDmg(criticalFactor, this);
+                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ffffff", 25, 'spark');
+                    playSound(90, 'sawtooth', 0.25, 0.2);
                 }
-                let tempX = this.x; let tempY = this.y;
-                this.x = choice.x; this.y = choice.y;
-                choice.x = tempX; choice.y = tempY;
-                shake = 5;
+            });
+        }
+        else if (this.type === 'naoya') {
+            this.cooldowns.s1 = 80;
+            this.projectionFrames = 14;
+            playSound(750, 'sine', 0.2, 0.15, 1100);
+            shake = 5;
+        } 
+        else if (this.type === 'todo') {
+            this.cooldowns.s1 = 50;
+            let targets = entities.filter(e => !e.dead);
+            if (!this.isBot) {
+                if(targets.length > 0) {
+                    let choice = targets[Math.floor(Math.random() * targets.length)];
+                    let tx = this.x; let ty = this.y;
+                    this.x = choice.x; this.y = choice.y;
+                    choice.x = tx; choice.y = ty;
+                    spawnVisualEffect(this.x, this.y, "#7209b7", 15, 'spark');
+                    spawnVisualEffect(choice.x, choice.y, "#ffffff", 15, 'spark');
+                    playSound(500, 'square', 0.08, 0.15);
+                }
             }
-        } else if (this.type === 'mahito') {
-            // --- MAHITO SIGNATURE TECHNIQUE: SOUL REPULSION ---
+        } 
+        else {
+            // General Safe Balanced fall-back Technique Template
             this.cooldowns.s1 = 90;
-            playSound(120, 'sawtooth', 0.3, 0.15, 40);
-            this.executeAttack('s1', 20, 120);
-            for(let i=0; i<15; i++) spawnPart(this.x + (this.facing * 60), this.y + 30, "#d8f3dc", 8);
-        } else {
-            this.executeAttack('s1', 18, 130);
+            let dmg = 9 * (this.isBot ? 1.0 : WEAPONS[ownedWeapon].dmgMod);
+            let hitRange = 110;
+            let hitX = this.facing === 1 ? this.x + this.w : this.x - hitRange;
+            let list = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
+            
+            list.forEach(t => {
+                if(!t.dead && t !== this && t.x + t.w > hitX && t.x < hitX + hitRange) {
+                    t.takeDmg(dmg, this);
+                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, CHARS[this.type].col, 12, 'spark');
+                }
+            });
+            playSound(280, 'sine', 0.2, 0.1);
         }
     }
 
-    executeAttack(key, dmg, range) {
-        if (this.cooldowns[key] > 0) return;
-        this.cooldowns[key] = key === 'm1' ? 14 : 110;
-        
-        let didHit = false;
-        let scanList = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
-        let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
-        
-        spawnPart(this.x + (this.facing*range/2) + this.w/2, this.y + this.h/2, this.isBot ? "#ced4da" : CHARS[this.type].col, 10);
+    executeTechnique2() {
+        if (this.cooldowns.s2 > 0) return;
 
-        scanList.forEach(t => {
-            if (t && !t.dead && t !== this) {
-                if (t.x + t.w > hitX && t.x < hitX + range && t.y + t.h > this.y && t.y < this.y + this.h) {
-                    t.takeDmg(dmg, this);
-                    didHit = true;
+        if (this.type === 'nobara') {
+            // STRAW DOLL HAIRPIN VECTOR DEPLOYMENT
+            this.cooldowns.s2 = 90;
+            let range = 140;
+            let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+            let scanList = entities.filter(e => !e.dead && e !== this);
+            
+            // Render floating straw doll effigy animation frame trace
+            spawnVisualEffect(this.x + (this.facing * 40), this.y, "#d4a373", 20, 'fountain');
+            playSound(320, 'square', 0.2, 0.12);
+
+            scanList.forEach(t => {
+                if (t.x + t.w > hitX && t.x < hitX + range) {
+                    let baseDmg = 9; 
+                    if (t.embeddedNails > 0) {
+                        baseDmg += (t.embeddedNails * 4);
+                        t.embeddedNails = 0;
+                    }
+                    t.takeDmg(baseDmg, this);
+                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff4d6d", 15, 'spark');
                 }
+            });
+            this.embeddedNails = 0;
+        } 
+        else if (this.type === 'nanami') {
+            this.cooldowns.s2 = 140; // Collapse Blast
+            shake = 12;
+            playSound(60, 'sawtooth', 0.4, 0.25, 30);
+            let areaRange = 150;
+            let centerX = this.x + this.w/2 + (this.facing * 60);
+            
+            spawnVisualEffect(centerX, GROUND - 30, "#ffb703", 40, 'shatter');
+            entities.forEach(t => {
+                if (!t.dead && t !== this && Math.abs((t.x + t.w/2) - centerX) < areaRange) {
+                    t.takeDmg(14, this);
+                    t.vy = -7; // Adds micro-knockback lift velocity
+                }
+            });
+            if (!player.dead && this.isBot && Math.abs((player.x + player.w/2) - centerX) < areaRange) {
+                player.takeDmg(14, this); player.vy = -7;
             }
-        });
+        }
+        else {
+            // Generic Standard Technique 2 Mapping
+            this.cooldowns.s2 = 120;
+            let dmg = 12 * (this.isBot ? 1.0 : WEAPONS[ownedWeapon].dmgMod);
+            let range = 140;
+            let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+            let list = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
 
-        playSound(didHit ? 120 : 350, didHit ? 'triangle' : 'sine', 0.15, 0.08);
-        if (didHit && !this.isBot) shake = 8;
+            spawnVisualEffect(this.x + (this.facing*60), this.y + 20, CHARS[this.type].col, 20, 'shatter');
+            list.forEach(t => {
+                if (!t.dead && t !== this && t.x + t.w > hitX && t.x < hitX + range) {
+                    t.takeDmg(dmg, this);
+                }
+            });
+            playSound(110, 'triangle', 0.25, 0.1);
+        }
     }
 
-    executeSilentHitboxCheck(dmg, range) {
-        // High-velocity passing check specific to projection sorcery vectors
+    executeSilentHitboxSweep(dmg, range) {
         let scanList = this.isBot ? [player].concat(entities.filter(e=>e!==this)) : entities;
         scanList.forEach(t => {
             if (t && !t.dead && t !== this) {
-                let dist = Math.abs((this.x + this.w/2) - (t.x + t.w/2));
-                if (dist < range && Math.abs(this.y - t.y) < 70) {
+                let delta = Math.abs((this.x + this.w/2) - (t.x + t.w/2));
+                if (delta < range && Math.abs(this.y - t.y) < 75) {
                     t.takeDmg(dmg, this);
-                    // Generate hit sparks instantly on intersection frame
-                    spawnPart(t.x + t.w/2, t.y + t.h/2, "#ffffff", 8);
+                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ffffff", 5, 'spark');
                 }
             }
         });
     }
 
     executeBlackFlashAction() {
-        keys['0'] = false; 
+        keys['0'] = false;
         if (this.cooldowns.blackFlash > 0) return;
 
         let now = Date.now();
-        let range = 80;
-        let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
-        let targetHit = null;
+        let reach = 85;
+        let hitX = this.facing === 1 ? this.x + this.w : this.x - reach;
+        let scanTarget = null;
 
-        let scanList = entities.filter(e => !e.dead);
-        scanList.forEach(t => {
-            if (t.x + t.w > hitX && t.x < hitX + range) {
-                targetHit = t;
-            }
+        let targets = entities.filter(e => !e.dead);
+        targets.forEach(t => {
+            if (t.x + t.w > hitX && t.x < hitX + reach) scanTarget = t;
         });
 
-        if (!targetHit) {
+        if (!scanTarget) {
             this.bfCount = 0;
-            this.cooldowns.blackFlash = 40; 
+            this.cooldowns.blackFlash = 45;
             return;
         }
 
-        if (this.bfCount > 0 && (now - this.lastBfTime) > 1000) {
-            this.bfCount = 1; 
-            this.cooldowns.blackFlash = 300; 
+        if (this.bfCount > 0 && (now - this.lastBfTime) > 1100) {
+            this.bfCount = 1;
+            this.cooldowns.blackFlash = 240;
             this.lastBfTime = now;
-            this.applyBlackFlashHit(targetHit, 15);
+            this.applyBlackFlashCalculus(scanTarget, 9);
             return;
         }
 
@@ -349,80 +508,84 @@ class Entity {
         this.lastBfTime = now;
 
         if (this.bfCount >= 5) {
-            this.applyBlackFlashHit(targetHit, 45); 
-            triggerRedTextAlert();
+            this.applyBlackFlashCalculus(scanTarget, 24);
+            const el = document.getElementById("flash-alert");
+            el.style.opacity = "1"; setTimeout(() => el.style.opacity = "0", 1200);
             this.bfCount = 0;
-            this.cooldowns.blackFlash = 900; 
-            playSound(90, 'sawtooth', 0.6, 0.4, 30);
+            this.cooldowns.blackFlash = 700; // Recoil recovery lockout clock cycle
+            playSound(55, 'sawtooth', 0.7, 0.5, 25);
             shake = 35;
         } else {
-            this.applyBlackFlashHit(targetHit, 18);
-            this.cooldowns.blackFlash = 15; 
-            playSound(180, 'square', 0.2, 0.25, 60);
-            shake = 12;
+            this.applyBlackFlashCalculus(scanTarget, 10);
+            this.cooldowns.blackFlash = 20;
+            playSound(160, 'square', 0.22, 0.3, 50);
+            shake = 14;
         }
     }
 
-    applyBlackFlashHit(target, dmg) {
-        target.takeDmg(dmg, this);
-        this.ult = Math.min(100, this.ult + 20); 
-        for(let i=0; i<25; i++) {
+    applyBlackFlashCalculus(target, baseDmg) {
+        target.takeDmg(baseDmg, this);
+        this.ult = Math.min(100, this.ult + 18);
+        
+        // Massive Cinematic Spatial Distortion Particle Burst
+        for(let i=0; i<35; i++) {
             particles.push({
                 x: target.x + target.w/2, y: target.y + target.h/2,
-                vx: (Math.random()-0.5)*16, vy: (Math.random()-0.5)*16,
-                col: i % 2 === 0 ? "#000000" : "#ff0055", sz: Math.random()*7 + 3, life: 1.2
+                vx: (Math.random()-0.5)*18, vy: (Math.random()-0.5)*18,
+                col: i % 2 === 0 ? "#000000" : "#ff0055", sz: Math.random()*8 + 3, life: 1.4, type: 'spark'
             });
         }
     }
 
     triggerDomainExpansion() {
         this.ult = 0;
-        let dName = this.type === 'heian_sukuna' ? "MALEVOLENT SHRINE (TRUE)" : CHARS[this.type].domain;
+        let domainLabel = this.type === 'heian_sukuna' ? "MALEVOLENT SHRINE (TRUE FORM)" : CHARS[this.type].domain;
 
         if (activeDomain && activeDomain.owner !== this) {
-            document.getElementById("domain-alert").innerText = "DOMAIN CLASH!";
+            document.getElementById("domain-alert").innerText = "TERRITORIAL BARRIER CLASH!";
             document.getElementById("domain-alert").style.opacity = 1;
-            playSound(60, 'sawtooth', 1.2, 0.35);
-            shake = 25;
-
-            setTimeout(() => {
-                document.getElementById("domain-alert").style.opacity = 0;
-            }, 1500);
+            playSound(50, 'sawtooth', 1.4, 0.4);
+            shake = 30;
+            setTimeout(() => document.getElementById("domain-alert").style.opacity = 0, 1500);
 
             activeDomain = null; 
-            for(let i=0; i<40; i++) spawnPart(W/2 + (Math.random()-0.5)*300, H/2, "#ffffff", 12);
+            spawnVisualEffect(W/2, H/2, "#ffffff", 60, 'shatter');
             return;
         }
 
-        activeDomain = { owner: this, type: this.type, timer: 360, name: dName };
+        activeDomain = { owner: this, type: this.type, timer: 400, name: domainLabel };
         
         if (!this.isBot) {
-            document.getElementById("domain-alert").innerText = dName;
+            document.getElementById("domain-alert").innerText = domainLabel;
             document.getElementById("domain-alert").style.opacity = 1;
             setTimeout(() => document.getElementById("domain-alert").style.opacity = 0, 1800);
         }
 
-        playSound(45, 'sine', 1.0, 0.3, 120);
+        playSound(40, 'sine', 1.2, 0.4, 110);
 
         if (this.type === 'hakari') {
             this.isJackpot = true;
-            this.jackpotTimer = 650; 
+            this.jackpotTimer = 650;
         }
     }
 
     takeDmg(amt, attacker) {
         if (this.dead) return;
         this.hp -= amt;
-        this.ult = Math.min(100, this.ult + amt * 0.4);
+        this.ult = Math.min(100, this.ult + amt * 0.45);
 
-        for(let i=0; i<6; i++) spawnPart(this.x + this.w/2, this.y + this.h/2, "#ff0044", 4);
+        spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ff0044", 8, 'spark');
 
         if (this.hp <= 0) {
             this.hp = 0;
             this.dead = true;
             this.bfCount = 0;
             this.projectionFrames = 0;
-            if (attacker && !attacker.isBot) kills++;
+            
+            if (attacker && !attacker.isBot) {
+                kills++;
+                coins += 2; // Accrue financial rewards for upgrading weapons loop
+            }
             if (this.type === 'heian_sukuna') bossInstance = null;
             setTimeout(() => this.respawn(), 3500);
         }
@@ -431,95 +594,169 @@ class Entity {
     respawn() {
         if (this.type === 'heian_sukuna') {
             entities = entities.filter(e => e !== this);
-            return; 
+            return;
         }
         this.hp = this.maxHp;
         this.dead = false;
-        this.x = Math.random() * 2400 + 200;
+        this.x = Math.random() * 2800 + 200;
         this.y = GROUND - 200;
+        this.embeddedNails = 0;
     }
 
     draw() {
         if (this.dead) return;
 
         ctx.save();
-        if (this.isJackpot || this.projectionFrames > 0) {
-            ctx.shadowBlur = 25;
-            ctx.shadowColor = this.projectionFrames > 0 ? "#d4a373" : "#ffffff";
+        // High-Tier Active Transformation Aura Glow Nodes
+        if (this.isJackpot || this.projectionFrames > 0 || this.ult >= 90) {
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = this.ult >= 90 ? "#45f3ff" : (this.projectionFrames > 0 ? "#d4a373" : "#ffffff");
         }
 
-        ctx.fillStyle = this.type === 'heian_sukuna' ? "#5a189a" : CHARS[this.type].col;
-        ctx.fillRect(this.x - camX, this.y, this.w, this.h);
+        // Draw Ambient Blue Energy Ultimate Aura Ring
+        if (this.ult >= 90) {
+            ctx.strokeStyle = "rgba(69, 243, 255, 0.5)";
+            ctx.lineWidth = 4;
+            ctx.strokeRect(this.x - camX - 6, this.y - 6, this.w + 12, this.h + 12);
+        }
+
+        // Target Cursed Nobara Nail Indicator Overlay Vector Loop
+        if (this.embeddedNails > 0) {
+            ctx.strokeStyle = "#ff0055";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(this.x - camX - 2, this.y - 2, this.w + 4, this.h + 4);
+        }
+
+        // Base Entity Geometry Render Block
+        if (this.type === 'heian_sukuna') {
+            ctx.fillStyle = "#4a121a"; // Dark Heian Shroud
+            ctx.fillRect(this.x - camX, this.y, this.w, this.h);
+
+            // True Form Four Arms Vector Lines Layout
+            ctx.fillStyle = "#8a1824";
+            ctx.fillRect(this.x - camX - 12, this.y + 25, 12, 16); // Left Upper Arm
+            ctx.fillRect(this.x - camX - 12, this.y + 50, 12, 16); // Left Lower Arm
+            ctx.fillRect(this.x - camX + this.w, this.y + 25, 12, 16); // Right Upper Arm
+            ctx.fillRect(this.x - camX + this.w, this.y + 50, 12, 16); // Right Lower Arm
+
+            // Sukuna Tattoos Graphical Simulation Blocks
+            ctx.fillStyle = "#111111";
+            ctx.fillRect(this.x - camX + 10, this.y + 15, this.w - 20, 4);
+            ctx.fillRect(this.x - camX + 6, this.y + 35, 6, 20);
+            ctx.fillRect(this.x - camX + this.w - 12, this.y + 35, 6, 20);
+        } else {
+            ctx.fillStyle = CHARS[this.type].col;
+            ctx.fillRect(this.x - camX, this.y, this.w, this.h);
+            
+            // Nanami Cleaver weapon handle rendering hook
+            if(this.type === 'nanami') {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(this.x - camX + (this.facing === 1 ? this.w : -8), this.y + 30, 8, 22);
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(this.x - camX + (this.facing === 1 ? this.w + 2 : -6), this.y + 34, 4, 14);
+            }
+        }
         ctx.restore();
 
-        // Eyes / Focus Vector Nodes
+        // Draw Nobara Floating Straw/Nail Asset State Hooks above character box
+        if (this.type === 'nobara' && !this.isBot) {
+            for(let i=0; i<3; i++) {
+                ctx.fillStyle = (i < this.embeddedNails) ? "#ff4d6d" : "rgba(255,255,255,0.2)";
+                ctx.beginPath();
+                ctx.arc(this.x - camX + (i * 15) + 6, this.y - 22, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // General Visual Focus Nodes (Eyes Overlay)
         ctx.fillStyle = "#ffffff";
         let eyeX = this.facing === 1 ? this.x - camX + this.w - 12 : this.x - camX + 4;
-        ctx.fillRect(eyeX, this.y + 14, 8, 5);
+        ctx.fillRect(eyeX, this.y + 15, 8, 5);
 
-        // UI Overhead Bar Mappings
-        let bW = this.w + 20;
-        let bX = this.x - camX - 10;
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(bX, this.y - 14, bW, 5);
-        ctx.fillStyle = this.type === 'heian_sukuna' ? "#ef233c" : "#00f5d4";
-        ctx.fillRect(bX, this.y - 14, bW * (this.hp / this.maxHp), 5);
+        // Overhead Health Vector Processing Node
+        let bW = this.w + 16; let bX = this.x - camX - 8;
+        ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(bX, this.y - 12, bW, 5);
+        ctx.fillStyle = this.type === 'heian_sukuna' ? "#d90429" : "#00f5d4";
+        ctx.fillRect(bX, this.y - 12, bW * (this.hp / this.maxHp), 5);
     }
 }
 
-function spawnPart(x, y, col, sz) {
-    particles.push({
-        x, y, 
-        vx: (Math.random() - 0.5) * 9, 
-        vy: (Math.random() - 0.5) * 9, 
-        col, sz, life: 1.0
-    });
+// --- ENGINE GRAPHICS ADVANCED VISUAL PIPELINE EFFECTS SUBSYSTEM ---
+function spawnVisualEffect(x, y, col, count, style) {
+    for(let i=0; i<count; i++) {
+        particles.push({
+            x, y,
+            vx: (style==='slash') ? (Math.random()-0.5)*14 : (Math.random()-0.5)*9,
+            vy: (style==='fountain') ? -Math.random()*8 - 2 : (Math.random()-0.5)*9,
+            col,
+            sz: style==='shatter' ? Math.random()*9 + 4 : Math.random()*5 + 2,
+            life: 1.0,
+            type: style
+        });
+    }
 }
 
-function triggerRedTextAlert() {
-    const el = document.getElementById("flash-alert");
-    el.style.opacity = "1";
-    setTimeout(() => { el.style.opacity = "0"; }, 1200);
+function buyWeaponRoll() {
+    if (coins >= 5) {
+        coins -= 5;
+        let keysArray = Object.keys(WEAPONS).filter(k => k !== "fists");
+        ownedWeapon = keysArray[Math.floor(Math.random() * keysArray.length)];
+        playSound(440, 'sine', 0.4, 0.2, 880);
+        showMenu('main-menu');
+    } else {
+        alert("INSUFFICIENT SHINJUKU JUJUTSU COINS!");
+    }
 }
 
 function spawnRaidBoss() {
-    bossInstance = new Entity(1400, GROUND - 300, 'heian_sukuna', true);
+    bossInstance = new Entity(1600, GROUND - 300, 'heian_sukuna', true);
     entities.push(bossInstance);
-    playSound(40, 'sawtooth', 1.8, 0.5, 20);
-    shake = 30;
-    
-    for(let i=0; i<60; i++) spawnPart(1400, GROUND - 100, "#5a189a", 14);
+    playSound(45, 'sawtooth', 2.0, 0.6, 20);
+    shake = 35;
+    spawnVisualEffect(1600, GROUND - 80, "#9b2226", 70, 'shatter');
 }
 
-// --- ENGINE EXECUTION PIPELINE ---
+// --- CORE FRAME WORK ENGINE LIFE CYCLE PIPELINE ---
 function update() {
     globalFrames++;
 
-    player.update();
+    if (!player.dead) player.update();
     entities.forEach(e => e.update());
 
     if (activeDomain) {
         activeDomain.timer--;
+        
+        // SUKUNA MALEVOLENT DOMAIN CONTINUOUS SLASH FIELD
+        if (activeDomain.type === 'sukuna' || activeDomain.type === 'heian_sukuna') {
+            if (globalFrames % 8 === 0) {
+                shake = Math.max(shake, 4);
+                if(Math.random() < 0.5) playSound(120, 'sawtooth', 0.05, 0.05);
+                
+                // Damage calculation down-scaled for balancing standard survival pacing
+                if (!player.dead && activeDomain.owner !== player) player.takeDmg(0.8, activeDomain.owner);
+                entities.forEach(e => {
+                    if (!e.dead && activeDomain.owner !== e) e.takeDmg(0.8, activeDomain.owner);
+                });
+                spawnVisualEffect(camX + Math.random()*W, Math.random()*H, "rgba(155,34,38,0.4)", 3, 'slash');
+            }
+        }
+
         if (activeDomain.timer <= 0) activeDomain = null;
     }
 
     particles.forEach((p, idx) => {
         p.x += p.vx; p.y += p.vy;
-        p.life -= 0.025;
+        p.life -= 0.024;
         if (p.life <= 0) particles.splice(idx, 1);
     });
 
     camX = player.x - W / 2;
     if (camX < 0) camX = 0;
-    if (camX > 3000 - W) camX = 3000 - W;
+    if (camX > 3500 - W) camX = 3500 - W;
 
     if (globalFrames % 60 === 0) {
-        if (bossTimer > 0) {
-            bossTimer--;
-        } else {
-            spawnRaidBoss();
-            bossTimer = 360; 
-        }
+        if (bossTimer > 0) bossTimer--;
+        else { spawnRaidBoss(); bossTimer = 360; }
     }
 
     updateUI();
@@ -528,40 +765,64 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, W, H);
 
+    ctx.save();
     if (shake > 0) {
-        ctx.save();
         ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-        shake *= 0.88;
+        shake *= 0.89;
     }
 
-    // Sky space background render
-    ctx.fillStyle = "#87CEEB";
-    ctx.fillRect(0, 0, W, H);
+    // Sky space gradient render layer
+    let skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, "#020205"); skyGrad.addColorStop(1, "#11131c");
+    ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
 
+    // Background Architectural Parallax Elements Layer
+    environmentalDetails.forEach(b => {
+        let pX = b.x - camX * 0.3; // Parallax constant factor tracking
+        ctx.fillStyle = b.col;
+        ctx.fillRect(pX, GROUND - b.h, b.w, b.h);
+        if (b.neon) {
+            ctx.fillStyle = b.neon;
+            ctx.globalAlpha = 0.08;
+            ctx.fillRect(pX - 4, GROUND - b.h, b.w + 8, b.h);
+            ctx.globalAlpha = 1.0;
+        }
+    });
+
+    // Domain Expansion Structural Graphic Layers Overlay
     if (activeDomain) {
-        ctx.fillStyle = (CHARS[activeDomain.type] ? CHARS[activeDomain.type].col : "#5a189a") + "44";
-        ctx.fillRect(0, 0, W, H);
+        let domCol = CHARS[activeDomain.type] ? CHARS[activeDomain.type].col : "#5a189a";
+        ctx.fillStyle = domCol + "33"; ctx.fillRect(0, 0, W, H);
+
+        // HAKARI GAMBLE SLOT MACHINE EFFECTS OVERLAY
+        if (activeDomain.type === 'hakari') {
+            ctx.fillStyle = "#ffffff"; ctx.font = "bold 16px monospace";
+            ctx.fillText("[ 7 ] [ 7 ] [ 7 ] - JACKPOT FLUX MODE", W - 320, 140 + Math.sin(globalFrames*0.1)*5);
+            ctx.strokeStyle = "rgba(0,245,212,0.3)"; ctx.lineWidth = 2;
+            for(let k=0; k<5; k++) ctx.strokeRect(W/2 - 200 + (k*80), 200, 60, 80);
+        }
     }
 
-    // Shinjuku Street Baseline Grid Floor Elements Layer
-    ctx.fillStyle = "#3d3a45";
-    ctx.fillRect(0, GROUND, W, 100);
-    ctx.fillStyle = "#222026";
-    ctx.fillRect(0, GROUND, W, 6);
+    // Detailed Shinjuku Grid Ground Layer Floor Elements
+    ctx.fillStyle = "#1b1c22"; ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = "#45f3ff"; ctx.fillRect(0, GROUND, W, 4); // Continuous Cyan Neon Grid Wire Line
 
+    // Draw Entities & Particles Modules
     entities.forEach(e => e.draw());
     if (!player.dead) player.draw();
 
     particles.forEach(p => {
         ctx.fillStyle = p.col;
         ctx.globalAlpha = Math.max(0, p.life);
-        ctx.fillRect(p.x - camX, p.y, p.sz, p.sz);
+        if (p.type === 'grid') {
+            ctx.fillRect(p.x - camX, p.y, p.sz*4, 2);
+        } else {
+            ctx.fillRect(p.x - camX, p.y, p.sz, p.sz);
+        }
     });
     ctx.globalAlpha = 1.0;
 
-    if (shake > 0) {
-        ctx.restore();
-    }
+    ctx.restore();
 }
 
 function engineLifecycle() {
@@ -573,22 +834,24 @@ function engineLifecycle() {
 function updateUI() {
     document.getElementById("ui-char").innerText = `SORCERER: ${player.type.toUpperCase()}`;
     document.getElementById("hp-bar").style.width = Math.max(0, player.hp) + "%";
-    document.getElementById("ui-ult").innerText = `ULTIMATE: ${Math.floor(player.ult)}% [G]`;
+    document.getElementById("ui-ult").innerText = `ULTIMATE CE FORCE: ${Math.floor(player.ult)}% [G]`;
     document.getElementById("ui-kills").innerText = kills;
+    document.getElementById("ui-coins").innerText = coins;
 
-    let m = Math.floor(bossTimer / 60);
-    let s = bossTimer % 60;
-    document.getElementById("ui-timer").innerText = `BOSS SPAWN: ${m}:${s < 10 ? '0' : ''}${s}`;
+    let m = Math.floor(bossTimer / 60); let s = bossTimer % 60;
+    document.getElementById("ui-timer").innerText = `BOSS EVENT PROTOCOL: ${m}:${s < 10 ? '0' : ''}${s}`;
+
+    let wData = WEAPONS[ownedWeapon];
+    document.getElementById("ui-weapon").innerText = `WEAPON CACHE: ${wData.name.toUpperCase()} (+${Math.round((wData.dmgMod-1)*100)}% DMG EFFECT)`;
 
     let statusText = "Ready";
-    if (player.cooldowns.blackFlash > 300) statusText = `LOCKOUT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
-    else if (player.cooldowns.blackFlash > 0) statusText = `RHYTHM FAULT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
+    if (player.cooldowns.blackFlash > 240) statusText = `LOCKOUT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
+    else if (player.cooldowns.blackFlash > 0) statusText = `FAULT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
     document.getElementById("ui-bf").innerText = `BF Combo Track: ${player.bfCount}/5 (${statusText})`;
-
-    document.getElementById("ui-clash").innerText = activeDomain ? `ACTIVE TERRITORY: ${activeDomain.name}` : "";
+    document.getElementById("ui-clash").innerText = activeDomain ? `ACTIVE TERRITORY LAYER: ${activeDomain.name}` : "";
 }
 
-// --- CONTROLLER EVENT HANDLERS ---
+// --- CONTROLLER EVENTS ARCHITECTURE ---
 const keys = {};
 window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(audioCtx.state==='suspended') audioCtx.resume(); };
 window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; };
@@ -600,9 +863,13 @@ function showMenu(id) {
     document.getElementById(id).classList.remove('hidden');
 }
 function closeMenus() { document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')); }
-function selectChar(type) { player.type = type; player.hp = 100; player.bfCount = 0; player.projectionFrames = 0; closeMenus(); }
+function openMenuFromGame() { showMenu('main-menu'); }
 
-// Build character roster list
+function selectChar(type) { 
+    player.type = type; player.hp = 100; player.bfCount = 0; player.projectionFrames = 0; player.embeddedNails = 0; closeMenus(); 
+}
+
+// Dynamic Roster Generator Assembly Loop
 const container = document.getElementById("char-list");
 Object.keys(CHARS).forEach(c => {
     let b = document.createElement("button");
@@ -612,12 +879,13 @@ Object.keys(CHARS).forEach(c => {
     container.appendChild(b);
 });
 
-// Deploy structures setup parameters mapping execution loop
-player = new Entity(200, GROUND - 100, 'naoya', false);
-for(let i=0; i<8; i++) {
-    entities.push(new Entity(Math.random()*2200 + 200, GROUND - 100, Object.keys(CHARS)[i % Object.keys(CHARS).length], true));
+// Structural initialization parameters instantiation deployment
+player = new Entity(200, GROUND - 100, 'nobara', false);
+for(let i=0; i<9; i++) {
+    entities.push(new Entity(Math.random()*2600 + 300, GROUND - 100, Object.keys(CHARS)[i % Object.keys(CHARS).length], true));
 }
 
+initEnvironment();
 engineLifecycle();
 </script>
 </body>
