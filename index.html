@@ -228,6 +228,7 @@ class Entity {
     }
 
     getClosestTarget() {
+        // AI scans all characters (including other AI and the real player)
         let targets = entities.concat([player]).filter(t => t && !t.dead && t !== this);
         if (targets.length === 0) return null;
 
@@ -254,6 +255,11 @@ class Entity {
             if (Math.abs(dist) > 55) {
                 let baseSpd = this.type === 'naoya' ? 6.2 : 4.2; 
                 this.vx = this.facing * (this.isMahoraga ? 3.5 : baseSpd);
+            }
+
+            // Jump occasionally if the targeted opponent is elevated above them
+            if (target.y < this.y - 40 && this.y >= GROUND - this.h && Math.random() < 0.05) {
+                this.vy = -12;
             }
 
             if (globalFrames % 30 === 0 && Math.random() < 0.8) {
@@ -588,6 +594,7 @@ class Entity {
         if (this.dead) return;
         this.hp -= amt;
         
+        // Count kill toward user score tracking if player was the direct dealer
         if (attacker && !attacker.isBot && this.dead) {
             kills++;
         }
@@ -876,7 +883,6 @@ function startArenaMode(mode) {
     if (mode === "battle") {
         kills = 0;
         let rosterKeys = Object.keys(CHARS);
-        // Spawns bots cleanly covering the full roster profile array over the fields
         for(let i = 0; i < rosterKeys.length; i++) {
             let targetType = rosterKeys[i];
             entities.push(new Entity(450 + (i * 350), GROUND - 100, targetType, true, false));
@@ -892,7 +898,6 @@ function selectChar(type) {
     showMenu('main-menu'); 
 }
 
-// Generate the fully expanded select panel layout dynamically direct from the array map configuration
 const container = document.getElementById("char-list");
 Object.keys(CHARS).forEach(c => {
     let b = document.createElement("button"); 
