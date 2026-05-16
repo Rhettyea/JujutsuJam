@@ -14,6 +14,8 @@
         #flash-alert { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); color: #ff0055; font-size: 70px; font-weight: 900; pointer-events: none; text-shadow: 0 0 20px #000, 0 0 10px #ff0055; opacity: 0; transition: opacity 0.1s; font-family: 'Impact', sans-serif; letter-spacing: 4px; z-index: 8; }
         #domain-alert { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 45px; font-weight: bold; pointer-events: none; text-shadow: 0 0 15px #000, 0 0 25px rgba(255,255,255,0.5); opacity: 0; text-transform: uppercase; letter-spacing: 6px; z-index: 8; text-align: center;}
         .shop-flex { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; margin: 5px 0; border-radius: 4px; border: 1px solid rgba(102, 252, 241, 0.2); }
+        #cooldown-panel { margin-top: 5px; font-size: 12px; display: flex; gap: 10px; }
+        .cd-badge { background: rgba(0,0,0,0.6); border: 1px solid #45f3ff; padding: 2px 6px; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -27,16 +29,21 @@
             <div style="width:240px; height:16px; background:rgba(0,0,0,0.7); border:2px solid #66fcf1; margin: 4px 0; border-radius: 4px; overflow: hidden;">
                 <div id="hp-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #00ffcc, #00ff66);"></div>
             </div>
-            <div id="ui-ult" style="color: #ff00cc;">ULTIMATE: 0% [G]</div>
-            <div id="ui-bf" style="color: #ff0055; font-size: 13px;">BF Combo Track: 0/5</div>
-            <div id="ui-weapon" style="color: #ffb703; font-weight: bold; margin-top: 4px; font-size: 13px;">WEAPON: FISTS (+0% Dmg)</div>
+            <div id="ui-ult" style="color: #ff00cc;">CURSED ENERGY OUTPUT: 0% [G]</div>
+            <div id="ui-bf" style="color: #ff0055; font-size: 13px;">Black Flash Spark: 0/5</div>
+            <div id="ui-weapon" style="color: #ffb703; font-weight: bold; margin-top: 4px; font-size: 13px;">CURSED TOOL: FISTS (+0% Damage)</div>
+            <div id="cooldown-panel">
+                <div class="cd-badge">Innate 1 [E]: <span id="cd-e">READY</span></div>
+                <div class="cd-badge">Innate 2 [R]: <span id="cd-r">READY</span></div>
+                <div class="cd-badge">Nail [B]: <span id="cd-b">N/A</span></div>
+            </div>
         </div>
         <div style="text-align:right; font-family: monospace;">
-            <div id="ui-timer" style="font-size: 18px; color: #ee9b00;">BOSS SPAWN: 6:00</div>
-            <div>STREET KILLS: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">0</span></div>
+            <div id="ui-timer" style="font-size: 18px; color: #ee9b00;">BOSS RAID: 6:00</div>
+            <div>EXORCISED CURSES: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">0</span></div>
             <div>JUJUTSU COINS: <span id="ui-coins" style="color:#00ffcc; font-weight:bold;">0</span></div>
             <div id="ui-clash" style="color: #ffb703; font-weight: bold; font-size:13px; margin-top:4px;"></div>
-            <button onclick="openMenuFromGame()" style="width: auto; padding: 4px 10px; font-size: 11px; margin-top: 5px; background: #ae2012; border-color: #e63946;">RETREAT TO MENU</button>
+            <button onclick="openMenuFromGame()" style="width: auto; padding: 4px 10px; font-size: 11px; margin-top: 5px; background: #ae2012; border-color: #e63946;">RETURN TO INNATE DOMAIN</button>
         </div>
     </div>
 
@@ -44,47 +51,48 @@
     <div id="main-menu" class="menu">
         <h1 style="color:#45f3ff; margin-top:0; letter-spacing: 3px; text-shadow: 0 0 10px #45f3ff;">JUJUTSUJAM</h1>
         <button onclick="showMenu('char-menu')">Select Sorcerer</button>
-        <button onclick="showMenu('shop-menu')">Weapon Arsenal Shop</button>
-        <button onclick="showMenu('tutorial')">View Protocols</button>
-        <button onclick="closeMenus()" style="background:#ae2012; border-color: #e63946; margin-top:15px; font-size:16px;">ENTER SHINJUKU METROPOLIS</button>
+        <button onclick="showMenu('shop-menu')">Cursed Tool Arsenal</button>
+        <button onclick="showMenu('tutorial')">View Jujutsu Regulations</button>
+        <button onclick="closeMenus()" style="background:#ae2012; border-color: #e63946; margin-top:15px; font-size:16px;">DEPLOY TO SHINJUKU</button>
     </div>
 
     <!-- ROSTER MENU -->
     <div id="char-menu" class="menu hidden">
-        <h2 style="color:#66fcf1; margin-top:0;">SELECT YOUR SOUL</h2>
+        <h2 style="color:#66fcf1; margin-top:0;">SELECT SORCERER</h2>
         <div id="char-list" style="max-height: 280px; overflow-y: auto; padding-right: 5px;"></div>
         <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 10px;">RETURN</button>
     </div>
 
     <!-- WEAPON GACHA SHOP -->
     <div id="shop-menu" class="menu hidden">
-        <h2 style="color:#ffb703; margin-top:0;">CURSED WEAPONRY</h2>
-        <p style="font-size: 12px; color: #ccc;">Acquire weapon rolls using Coins earned from executing hostiles.</p>
+        <h2 style="color:#ffb703; margin-top:0;">CURSED TOOLS Shop</h2>
+        <p style="font-size: 12px; color: #ccc;">Offer Coins earned from exorcisms to forge advanced Special Grade Cursed Tools.</p>
         <div class="shop-flex">
-            <div><strong>Random Gacha Roll</strong><br><span style="font-size:11px; color:#aaa;">Weapon Buff Multiplier Upgrade</span></div>
+            <div><strong>Cursed Tool Gacha</strong><br><span style="font-size:11px; color:#aaa;">Randomly manifest a Cursed Technique buff</span></div>
             <button onclick="buyWeaponRoll()" style="width:110px; margin:0; padding:6px; background:#10b981; border-color:#34d399;">5 COINS</button>
         </div>
         <div style="margin-top: 15px; text-align: left; font-size: 11px; color: #888; border-top: 1px solid #333; padding-top: 10px;">
-            <strong>AVAILABLE CACHE:</strong><br>
+            <strong>SACRED TREASURES DETECTED:</strong><br>
             • Jet Black Sword (+15% Damage)<br>
             • Nanami's Wrapped Cleaver (+20% Critical Ratio)<br>
-            • Split Soul Katana (+30% Durability Bypass)<br>
-            • Playful Cloud (+45% Supreme Kinetic Force)
+            • Split Soul Katana (+30% Soul-Bypass Damage)<br>
+            • Playful Cloud (+45% Pure Physical Might)
         </div>
         <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 15px;">RETURN</button>
     </div>
 
     <!-- TUTORIAL -->
     <div id="tutorial" class="menu hidden">
-        <h3 style="margin-top:0; color:#45f3ff;">TACTICAL MANUAL</h3>
+        <h3 style="margin-top:0; color:#45f3ff;">CURSED TECHNIQUE GUIDE</h3>
         <p style="text-align:left; font-size:12px; line-height:1.5; color:#e0e0e0;">
-            <strong>A / D :</strong> Velocity Left / Right Vector<br>
-            <strong>W / SPACE :</strong> Spatial Vertical Jump Ascent<br>
-            <strong>CLICK (M1) :</strong> Unleash Core Cursed Weapon Strings<br>
-            <strong>E / R :</strong> Execute Specialized Innate Techniques<br>
-            <strong>G :</strong> Domain Expansion Barrier (At 100% Ult Power)<br>
-            <strong>Key '0' :</strong> Spark Black Flash Kinetic Synchronicity<br><br>
-            <span style="color:#ff4d6d;"><strong>Nobara Kit:</strong> Basic strikes embed nails (Max 3 above head). More nails = passively scaling damage output. <strong>[E] Resonance:</strong> Damages self slightly, inflicts colossal rupture on nail-embedded foes. <strong>[R] Hairpin:</strong> Swings straw doll, detaching active nails into bursting shrapnel vectors.</span>
+            <strong>A / D :</strong> Lateral Movement<br>
+            <strong>W / SPACE :</strong> Cursed Energy Enhanced Jump<br>
+            <strong>CLICK (M1) :</strong> Basic Divergent Taijutsu Strike<br>
+            <strong>E / R :</strong> Innate Cursed Techniques<br>
+            <strong>B :</strong> Throw Straw Doll Nail (Nobara Exclusive)<br>
+            <strong>G :</strong> Barrier Domain Expansion (At 100% Cursed Energy)<br>
+            <strong>Key '0' :</strong> Enter the Zone / Black Flash Flashpoint<br><br>
+            <span style="color:#ff4d6d;"><strong>Kugisaki Kit:</strong> Taijutsu attacks implant nails. <strong>[B] Nail Fly:</strong> Ranged target marking. <strong>[E] Resonance:</strong> Massive voodoo rupture to nailed targets. <strong>[R] Hairpin:</strong> Detonates nails into localized explosive shrapnel fields.</span>
         </p>
         <button onclick="showMenu('main-menu')" style="background:#3d5a80;">RETURN</button>
     </div>
@@ -116,18 +124,18 @@ let H = canvas.height = window.innerHeight;
 const GROUND = H - 120;
 
 const CHARS = {
-    nobara:   { col: "#ff4d6d", domain: "Innate Resonance Layer", s1: "Resonance Voodoo", s2: "Hairpin Explode" },
-    nanami:   { col: "#ffb703", domain: "Overtime Horizon Contract", s1: "7:3 Ratio Strike", s2: "Collapse Blindspot" },
-    naoya:    { col: "#d4a373", domain: "Time-Cell Moon Palace", s1: "Projection Dash", s2: "Frame Break" },
-    hakari:   { col: "#00f5d4", domain: "Idle Death Gamble", s1: "Shutter Wall", s2: "Pachinko Ball" },
+    nobara:   { col: "#ff4d6d", domain: "Straw Doll Innate Resonance", s1: "Resonance", s2: "Hairpin" },
+    nanami:   { col: "#ffb703", domain: "Overtime Horizon Contract", s1: "7:3 Ratio Technique", s2: "Collapse" },
+    naoya:    { col: "#d4a373", domain: "Time-Cell Moon Palace", s1: "Projection Sorcery", s2: "Frame Break" },
+    hakari:   { col: "#00f5d4", domain: "Idle Death Gamble", s1: "Shutter Gates", s2: "Pachinko Balls" },
     gojo:     { col: "#48cae4", domain: "Unlimited Void", s1: "Lapse Blue", s2: "Reversal Red" },
     sukuna:   { col: "#9b2226", domain: "Malevolent Shrine", s1: "Dismantle", s2: "Cleave" },
-    toji:     { col: "#212529", domain: "Inverted Arena", s1: "Spear Thrust", s2: "Zero Dash" },
-    todo:     { col: "#7209b7", domain: "Takada Concert", s1: "Boogie Woogie", s2: "Playful Strike" },
-    mahito:   { col: "#a2d2ff", domain: "Self-Embodiment of Perfection", s1: "Soul Repulsion", s2: "Body Repel Spikes" },
-    higuruma: { col: "#adb5bd", domain: "Deadly Sentencing", s1: "Gavel Strike", s2: "Guilty Verdict" },
-    yuji:     { col: "#fb8500", domain: "Manji Combat", s1: "Divergent Fist", s2: "Knee Strike" },
-    kashimo:  { col: "#ccff33", domain: "Phantom Beast Amber", s1: "Electric Bolt", s2: "Lightning Charge" }
+    toji:     { col: "#212529", domain: "Inverted Restless Arena", s1: "Playful Cloud Slam", s2: "Zero Dash" },
+    todo:     { col: "#7209b7", domain: "Takada Idol Concert", s1: "Boogie Woogie", s2: "Playful Strike" },
+    mahito:   { col: "#a2d2ff", domain: "Self-Embodiment of Perfection", s1: "Idle Transfiguration", s2: "Soul Spikes" },
+    higuruma: { col: "#adb5bd", domain: "Deadly Sentencing", s1: "Executioner Gavel", s2: "Guilty Verdict" },
+    yuji:     { col: "#fb8500", domain: "Manji Martial Combat", s1: "Divergent Fist", s2: "Knee Strike" },
+    kashimo:  { col: "#ccff33", domain: "Mythical Beast Amber", s1: "Lightning Discharge", s2: "Electrical Charge" }
 };
 
 const WEAPONS = {
@@ -140,6 +148,7 @@ const WEAPONS = {
 
 let entities = [];
 let particles = [];
+let projectNails = [];
 let environmentalDetails = [];
 let player;
 let bossInstance = null;
@@ -152,7 +161,6 @@ let globalFrames = 0;
 let activeDomain = null; 
 let ownedWeapon = "fists";
 
-// Generate Interactive City Skyscraper Backdrop Structural Metadata
 function initEnvironment() {
     environmentalDetails = [];
     for(let i=0; i<35; i++) {
@@ -174,16 +182,15 @@ class Entity {
         this.hp = 100; this.maxHp = 100; this.ult = 0;
         this.facing = 1;
         this.dead = false;
-        this.cooldowns = { s1: 0, s2: 0, m1: 0, blackFlash: 0 };
+        this.cooldowns = { s1: 0, s2: 0, m1: 0, blackFlash: 0, nailThrow: 0 };
         
         this.bfCount = 0;
         this.lastBfTime = 0;
 
-        // Specialized Status Registers
         this.isJackpot = false;
         this.jackpotTimer = 0;
         this.projectionFrames = 0;
-        this.embeddedNails = 0; // Tracks Nobara pins pushed into targets
+        this.embeddedNails = 0; 
 
         if (type === 'heian_sukuna') {
             this.maxHp = 800; this.hp = 800;
@@ -194,7 +201,6 @@ class Entity {
     update() {
         if (this.dead) return;
 
-        // Hakari Infinite CE Flow Cycle
         if (this.type === 'hakari' && this.isJackpot) {
             this.hp = Math.min(100, this.hp + 0.3);
             this.ult = 100;
@@ -203,7 +209,6 @@ class Entity {
             if(globalFrames % 2 === 0) spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ffffff", 5, 'fountain');
         }
 
-        // Naoya Kinematic Subroutine Exception Override
         if (this.type === 'naoya' && this.projectionFrames > 0) {
             this.projectionFrames--;
             this.vy = 0;
@@ -239,6 +244,7 @@ class Entity {
         if (keys['m1']) this.executeBasicStrike();
         if (keys['e']) this.executeTechnique1();
         if (keys['r']) this.executeTechnique2();
+        if (keys['b']) this.executeNailThrow();
         if (keys['g'] && this.ult >= 100) this.triggerDomainExpansion();
         if (keys['0']) this.executeBlackFlashAction();
     }
@@ -269,7 +275,11 @@ class Entity {
                 if (absD < 75) {
                     this.executeBasicStrike();
                 } else if (absD < 240) {
-                    this.executeTechnique1();
+                    if (this.type === 'nobara' && Math.random() < 0.5) {
+                        this.executeNailThrow();
+                    } else {
+                        this.executeTechnique1();
+                    }
                 }
                 if (this.ult >= 100 && Math.random() < 0.25) this.triggerDomainExpansion();
             }
@@ -280,17 +290,14 @@ class Entity {
         if (this.cooldowns.m1 > 0) return;
         this.cooldowns.m1 = 15;
 
-        // Base Damage balanced down to make fights feel longer & competitive
         let baseDmg = 4.5; 
         let range = 65;
 
-        // Apply Weapon Buffs if User is Player
         if (!this.isBot) {
             baseDmg *= WEAPONS[ownedWeapon].dmgMod;
             if (ownedWeapon === "playfulCloud") range = 90;
         }
 
-        // Nobara Nail Multiplier Scaling Calculation Module
         if (this.type === 'nobara' && !this.isBot) {
             baseDmg += (this.embeddedNails * 1.5);
         }
@@ -307,11 +314,10 @@ class Entity {
                     t.takeDmg(baseDmg, this);
                     hitRegistered = true;
 
-                    // Nobara nail embedding architecture trigger
-                    if (this.type === 'nobara' && !this.isBot) {
-                        if (this.embeddedNails < 3) {
-                            this.embeddedNails++;
+                    if (this.type === 'nobara') {
+                        if ((t.embeddedNails || 0) < 3) {
                             t.embeddedNails = Math.min(3, (t.embeddedNails || 0) + 1);
+                            if(!this.isBot) this.embeddedNails = Math.min(3, this.embeddedNails + 1);
                             playSound(400, 'square', 0.15, 0.1);
                         }
                     }
@@ -323,13 +329,28 @@ class Entity {
         if (hitRegistered && !this.isBot) shake = 5;
     }
 
+    executeNailThrow() {
+        if (this.type !== 'nobara' || this.cooldowns.nailThrow > 0) return;
+        this.cooldowns.nailThrow = 45; // 45 frames cooldown (~0.75s)
+
+        let nX = this.facing === 1 ? this.x + this.w : this.x - 10;
+        let nY = this.y + 25;
+        projectNails.push({
+            x: nX, y: nY,
+            vx: this.facing * 12,
+            owner: this,
+            alive: true
+        });
+
+        playSound(580, 'sine', 0.1, 0.08, 300);
+        spawnVisualEffect(nX, nY, "#ff4d6d", 4, 'spark');
+    }
+
     executeTechnique1() {
         if (this.cooldowns.s1 > 0) return;
 
         if (this.type === 'nobara') {
-            // RESONANCE MOVEMENT KIT IMPLEMENTATION
             this.cooldowns.s1 = 120;
-            // Self Damage Penalty Subroutine
             this.takeDmg(3, this); 
             playSound(180, 'sawtooth', 0.4, 0.15);
             shake = 10;
@@ -341,10 +362,9 @@ class Entity {
                 spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0055", 35, 'shatter');
                 t.embeddedNails = 0; 
             });
-            this.embeddedNails = 0; // Reset active nails count over character head
+            this.embeddedNails = 0; 
         }
         else if (this.type === 'nanami') {
-            // 7:3 RATIO CRITICAL INNATE CUT
             this.cooldowns.s1 = 80;
             let range = 110;
             let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
@@ -353,7 +373,6 @@ class Entity {
             spawnVisualEffect(this.x + (this.facing * 45), this.y + 30, "#ffb703", 20, 'grid');
             targets.forEach(t => {
                 if (!t.dead && t !== this && t.x + t.w > hitX && t.x < hitX + range) {
-                    // Overtime/Ratio amplification simulation
                     let criticalFactor = (Math.random() < 0.73) ? 18 : 8; 
                     t.takeDmg(criticalFactor, this);
                     spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ffffff", 25, 'spark');
@@ -383,7 +402,6 @@ class Entity {
             }
         } 
         else {
-            // General Safe Balanced fall-back Technique Template
             this.cooldowns.s1 = 90;
             let dmg = 9 * (this.isBot ? 1.0 : WEAPONS[ownedWeapon].dmgMod);
             let hitRange = 110;
@@ -404,13 +422,11 @@ class Entity {
         if (this.cooldowns.s2 > 0) return;
 
         if (this.type === 'nobara') {
-            // STRAW DOLL HAIRPIN VECTOR DEPLOYMENT
             this.cooldowns.s2 = 90;
             let range = 140;
             let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
             let scanList = entities.filter(e => !e.dead && e !== this);
             
-            // Render floating straw doll effigy animation frame trace
             spawnVisualEffect(this.x + (this.facing * 40), this.y, "#d4a373", 20, 'fountain');
             playSound(320, 'square', 0.2, 0.12);
 
@@ -428,7 +444,7 @@ class Entity {
             this.embeddedNails = 0;
         } 
         else if (this.type === 'nanami') {
-            this.cooldowns.s2 = 140; // Collapse Blast
+            this.cooldowns.s2 = 140; 
             shake = 12;
             playSound(60, 'sawtooth', 0.4, 0.25, 30);
             let areaRange = 150;
@@ -438,7 +454,7 @@ class Entity {
             entities.forEach(t => {
                 if (!t.dead && t !== this && Math.abs((t.x + t.w/2) - centerX) < areaRange) {
                     t.takeDmg(14, this);
-                    t.vy = -7; // Adds micro-knockback lift velocity
+                    t.vy = -7; 
                 }
             });
             if (!player.dead && this.isBot && Math.abs((player.x + player.w/2) - centerX) < areaRange) {
@@ -446,7 +462,6 @@ class Entity {
             }
         }
         else {
-            // Generic Standard Technique 2 Mapping
             this.cooldowns.s2 = 120;
             let dmg = 12 * (this.isBot ? 1.0 : WEAPONS[ownedWeapon].dmgMod);
             let range = 140;
@@ -512,7 +527,7 @@ class Entity {
             const el = document.getElementById("flash-alert");
             el.style.opacity = "1"; setTimeout(() => el.style.opacity = "0", 1200);
             this.bfCount = 0;
-            this.cooldowns.blackFlash = 700; // Recoil recovery lockout clock cycle
+            this.cooldowns.blackFlash = 700; 
             playSound(55, 'sawtooth', 0.7, 0.5, 25);
             shake = 35;
         } else {
@@ -527,7 +542,6 @@ class Entity {
         target.takeDmg(baseDmg, this);
         this.ult = Math.min(100, this.ult + 18);
         
-        // Massive Cinematic Spatial Distortion Particle Burst
         for(let i=0; i<35; i++) {
             particles.push({
                 x: target.x + target.w/2, y: target.y + target.h/2,
@@ -542,7 +556,7 @@ class Entity {
         let domainLabel = this.type === 'heian_sukuna' ? "MALEVOLENT SHRINE (TRUE FORM)" : CHARS[this.type].domain;
 
         if (activeDomain && activeDomain.owner !== this) {
-            document.getElementById("domain-alert").innerText = "TERRITORIAL BARRIER CLASH!";
+            document.getElementById("domain-alert").innerText = "DOMAIN CLASH!";
             document.getElementById("domain-alert").style.opacity = 1;
             playSound(50, 'sawtooth', 1.4, 0.4);
             shake = 30;
@@ -584,7 +598,7 @@ class Entity {
             
             if (attacker && !attacker.isBot) {
                 kills++;
-                coins += 2; // Accrue financial rewards for upgrading weapons loop
+                coins += 2; 
             }
             if (this.type === 'heian_sukuna') bossInstance = null;
             setTimeout(() => this.respawn(), 3500);
@@ -606,59 +620,97 @@ class Entity {
     draw() {
         if (this.dead) return;
 
+        let isAwakened = this.ult >= 90;
+
         ctx.save();
-        // High-Tier Active Transformation Aura Glow Nodes
-        if (this.isJackpot || this.projectionFrames > 0 || this.ult >= 90) {
+        if (this.isJackpot || this.projectionFrames > 0 || isAwakened) {
             ctx.shadowBlur = 30;
-            ctx.shadowColor = this.ult >= 90 ? "#45f3ff" : (this.projectionFrames > 0 ? "#d4a373" : "#ffffff");
+            ctx.shadowColor = isAwakened ? (this.type === 'kashimo' ? "#ccff33" : "#45f3ff") : (this.projectionFrames > 0 ? "#d4a373" : "#ffffff");
         }
 
-        // Draw Ambient Blue Energy Ultimate Aura Ring
-        if (this.ult >= 90) {
-            ctx.strokeStyle = "rgba(69, 243, 255, 0.5)";
+        if (isAwakened) {
+            ctx.strokeStyle = this.type === 'kashimo' ? "rgba(204, 255, 51, 0.6)" : "rgba(69, 243, 255, 0.5)";
             ctx.lineWidth = 4;
             ctx.strokeRect(this.x - camX - 6, this.y - 6, this.w + 12, this.h + 12);
         }
 
-        // Target Cursed Nobara Nail Indicator Overlay Vector Loop
         if (this.embeddedNails > 0) {
             ctx.strokeStyle = "#ff0055";
             ctx.lineWidth = 3;
             ctx.strokeRect(this.x - camX - 2, this.y - 2, this.w + 4, this.h + 4);
         }
 
-        // Base Entity Geometry Render Block
         if (this.type === 'heian_sukuna') {
-            ctx.fillStyle = "#4a121a"; // Dark Heian Shroud
+            ctx.fillStyle = "#4a121a"; 
             ctx.fillRect(this.x - camX, this.y, this.w, this.h);
-
-            // True Form Four Arms Vector Lines Layout
             ctx.fillStyle = "#8a1824";
-            ctx.fillRect(this.x - camX - 12, this.y + 25, 12, 16); // Left Upper Arm
-            ctx.fillRect(this.x - camX - 12, this.y + 50, 12, 16); // Left Lower Arm
-            ctx.fillRect(this.x - camX + this.w, this.y + 25, 12, 16); // Right Upper Arm
-            ctx.fillRect(this.x - camX + this.w, this.y + 50, 12, 16); // Right Lower Arm
-
-            // Sukuna Tattoos Graphical Simulation Blocks
+            ctx.fillRect(this.x - camX - 12, this.y + 25, 12, 16); 
+            ctx.fillRect(this.x - camX - 12, this.y + 50, 12, 16); 
+            ctx.fillRect(this.x - camX + this.w, this.y + 25, 12, 16); 
+            ctx.fillRect(this.x - camX + this.w, this.y + 50, 12, 16); 
             ctx.fillStyle = "#111111";
             ctx.fillRect(this.x - camX + 10, this.y + 15, this.w - 20, 4);
             ctx.fillRect(this.x - camX + 6, this.y + 35, 6, 20);
             ctx.fillRect(this.x - camX + this.w - 12, this.y + 35, 6, 20);
         } else {
-            ctx.fillStyle = CHARS[this.type].col;
+            // Contextual Awakening Alteration Maps
+            if (this.type === 'yuji' && isAwakened) {
+                ctx.fillStyle = "#660708"; // Shinjuku Crimson Tone Palette Switch
+            } else {
+                ctx.fillStyle = CHARS[this.type].col;
+            }
             ctx.fillRect(this.x - camX, this.y, this.w, this.h);
             
-            // Nanami Cleaver weapon handle rendering hook
             if(this.type === 'nanami') {
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(this.x - camX + (this.facing === 1 ? this.w : -8), this.y + 30, 8, 22);
                 ctx.fillStyle = "#000000";
                 ctx.fillRect(this.x - camX + (this.facing === 1 ? this.w + 2 : -6), this.y + 34, 4, 14);
             }
-        }
-        ctx.restore();
 
-        // Draw Nobara Floating Straw/Nail Asset State Hooks above character box
+            // Yuji Gauntlet Arms Generation Line
+            if (this.type === 'yuji' && isAwakened) {
+                ctx.fillStyle = "#111111";
+                let armX = this.facing === 1 ? this.x - camX + this.w - 6 : this.x - camX - 4;
+                ctx.fillRect(armX, this.y + 30, 10, 24); // Hardened gauntlet mesh overlay
+            }
+
+            // Kashimo Amber Lightning Body lines
+            if (this.type === 'kashimo' && isAwakened && globalFrames % 4 === 0) {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(this.x - camX + Math.random()*this.w, this.y + Math.random()*this.h, 4, 12);
+            }
+        }
+
+        // Facial / Mask Configurations
+        if (this.type === 'gojo') {
+            if (!isAwakened) {
+                // Render White Blindfold over standard eyes
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(this.x - camX - 2, this.y + 12, this.w + 4, 11);
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(this.x - camX + (this.facing === 1 ? this.w - 8 : 0), this.y + 15, 8, 5);
+            } else {
+                // Blindfold OFF -> Revealing Radiant Blue Six Eyes
+                ctx.fillStyle = "#45f3ff";
+                let eyeX = this.facing === 1 ? this.x - camX + this.w - 12 : this.x - camX + 4;
+                ctx.fillRect(eyeX, this.y + 15, 8, 5);
+            }
+        } else if (this.type === 'kashimo' && isAwakened) {
+            // Amber Electrical Mask Formation
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(this.x - camX - 1, this.y + 10, this.w + 2, 16);
+            ctx.fillStyle = "#ccff33";
+            let eyeX = this.facing === 1 ? this.x - camX + this.w - 14 : this.x - camX + 6;
+            ctx.fillRect(eyeX, this.y + 14, 4, 4);
+            ctx.fillRect(eyeX + 6, this.y + 14, 4, 4);
+        } else if (this.type !== 'gojo' && this.type !== 'heian_sukuna') {
+            // Default Eyes Processing
+            ctx.fillStyle = "#ffffff";
+            let eyeX = this.facing === 1 ? this.x - camX + this.w - 12 : this.x - camX + 4;
+            ctx.fillRect(eyeX, this.y + 15, 8, 5);
+        }
+
         if (this.type === 'nobara' && !this.isBot) {
             for(let i=0; i<3; i++) {
                 ctx.fillStyle = (i < this.embeddedNails) ? "#ff4d6d" : "rgba(255,255,255,0.2)";
@@ -668,20 +720,15 @@ class Entity {
             }
         }
 
-        // General Visual Focus Nodes (Eyes Overlay)
-        ctx.fillStyle = "#ffffff";
-        let eyeX = this.facing === 1 ? this.x - camX + this.w - 12 : this.x - camX + 4;
-        ctx.fillRect(eyeX, this.y + 15, 8, 5);
-
-        // Overhead Health Vector Processing Node
         let bW = this.w + 16; let bX = this.x - camX - 8;
         ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(bX, this.y - 12, bW, 5);
         ctx.fillStyle = this.type === 'heian_sukuna' ? "#d90429" : "#00f5d4";
         ctx.fillRect(bX, this.y - 12, bW * (this.hp / this.maxHp), 5);
+
+        ctx.restore();
     }
 }
 
-// --- ENGINE GRAPHICS ADVANCED VISUAL PIPELINE EFFECTS SUBSYSTEM ---
 function spawnVisualEffect(x, y, col, count, style) {
     for(let i=0; i<count; i++) {
         particles.push({
@@ -704,7 +751,7 @@ function buyWeaponRoll() {
         playSound(440, 'sine', 0.4, 0.2, 880);
         showMenu('main-menu');
     } else {
-        alert("INSUFFICIENT SHINJUKU JUJUTSU COINS!");
+        alert("INSUFFICIENT JUJUTSU COINS!");
     }
 }
 
@@ -716,23 +763,52 @@ function spawnRaidBoss() {
     spawnVisualEffect(1600, GROUND - 80, "#9b2226", 70, 'shatter');
 }
 
-// --- CORE FRAME WORK ENGINE LIFE CYCLE PIPELINE ---
+// --- ENGINE LIFE CYCLE PIPELINE ---
 function update() {
     globalFrames++;
 
     if (!player.dead) player.update();
     entities.forEach(e => e.update());
 
+    // Nobara Fly Nails Projectile Pipeline Management Loop
+    for (let i = projectNails.length - 1; i >= 0; i--) {
+        let n = projectNails[i];
+        n.x += n.vx;
+        
+        // Particle Trait Trail
+        if (globalFrames % 2 === 0) {
+            particles.push({ x: n.x, y: n.y, vx: 0, vy: 0, col: "#ff4d6d", sz: 3, life: 0.5, type: 'spark' });
+        }
+
+        let targets = n.owner.isBot ? [player].concat(entities.filter(e => e !== n.owner)) : entities;
+        targets.forEach(t => {
+            if (!t.dead && t !== n.owner && n.alive) {
+                if (n.x > t.x && n.x < t.x + t.w && n.y > t.y && n.y < t.y + t.h) {
+                    t.takeDmg(3.5, n.owner);
+                    t.embeddedNails = Math.min(3, (t.embeddedNails || 0) + 1);
+                    if (!n.owner.isBot && n.owner === player) {
+                        player.embeddedNails = Math.min(3, player.embeddedNails + 1);
+                    }
+                    spawnVisualEffect(n.x, n.y, "#ffffff", 10, 'spark');
+                    playSound(200, 'square', 0.1, 0.15);
+                    n.alive = false;
+                }
+            }
+        });
+
+        if (n.x < 0 || n.x > 3500 || !n.alive) {
+            projectNails.splice(i, 1);
+        }
+    }
+
     if (activeDomain) {
         activeDomain.timer--;
         
-        // SUKUNA MALEVOLENT DOMAIN CONTINUOUS SLASH FIELD
         if (activeDomain.type === 'sukuna' || activeDomain.type === 'heian_sukuna') {
             if (globalFrames % 8 === 0) {
                 shake = Math.max(shake, 4);
                 if(Math.random() < 0.5) playSound(120, 'sawtooth', 0.05, 0.05);
                 
-                // Damage calculation down-scaled for balancing standard survival pacing
                 if (!player.dead && activeDomain.owner !== player) player.takeDmg(0.8, activeDomain.owner);
                 entities.forEach(e => {
                     if (!e.dead && activeDomain.owner !== e) e.takeDmg(0.8, activeDomain.owner);
@@ -771,14 +847,12 @@ function draw() {
         shake *= 0.89;
     }
 
-    // Sky space gradient render layer
     let skyGrad = ctx.createLinearGradient(0, 0, 0, H);
     skyGrad.addColorStop(0, "#020205"); skyGrad.addColorStop(1, "#11131c");
     ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, W, H);
 
-    // Background Architectural Parallax Elements Layer
     environmentalDetails.forEach(b => {
-        let pX = b.x - camX * 0.3; // Parallax constant factor tracking
+        let pX = b.x - camX * 0.3; 
         ctx.fillStyle = b.col;
         ctx.fillRect(pX, GROUND - b.h, b.w, b.h);
         if (b.neon) {
@@ -789,27 +863,31 @@ function draw() {
         }
     });
 
-    // Domain Expansion Structural Graphic Layers Overlay
     if (activeDomain) {
         let domCol = CHARS[activeDomain.type] ? CHARS[activeDomain.type].col : "#5a189a";
         ctx.fillStyle = domCol + "33"; ctx.fillRect(0, 0, W, H);
 
-        // HAKARI GAMBLE SLOT MACHINE EFFECTS OVERLAY
         if (activeDomain.type === 'hakari') {
             ctx.fillStyle = "#ffffff"; ctx.font = "bold 16px monospace";
-            ctx.fillText("[ 7 ] [ 7 ] [ 7 ] - JACKPOT FLUX MODE", W - 320, 140 + Math.sin(globalFrames*0.1)*5);
+            ctx.fillText("[ 7 ] [ 7 ] [ 7 ] - JACKPOT MODE", W - 320, 140 + Math.sin(globalFrames*0.1)*5);
             ctx.strokeStyle = "rgba(0,245,212,0.3)"; ctx.lineWidth = 2;
             for(let k=0; k<5; k++) ctx.strokeRect(W/2 - 200 + (k*80), 200, 60, 80);
         }
     }
 
-    // Detailed Shinjuku Grid Ground Layer Floor Elements
     ctx.fillStyle = "#1b1c22"; ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.fillStyle = "#45f3ff"; ctx.fillRect(0, GROUND, W, 4); // Continuous Cyan Neon Grid Wire Line
+    ctx.fillStyle = "#45f3ff"; ctx.fillRect(0, GROUND, W, 4); 
 
-    // Draw Entities & Particles Modules
     entities.forEach(e => e.draw());
     if (!player.dead) player.draw();
+
+    // Render flying straw-doll nails
+    projectNails.forEach(n => {
+        ctx.fillStyle = "#e5e5e5";
+        ctx.fillRect(n.x - camX, n.y, 10, 3);
+        ctx.fillStyle = "#ff4d6d";
+        ctx.fillRect(n.x - camX + (n.vx > 0 ? 8 : -2), n.y - 1, 3, 5);
+    });
 
     particles.forEach(p => {
         ctx.fillStyle = p.col;
@@ -834,21 +912,31 @@ function engineLifecycle() {
 function updateUI() {
     document.getElementById("ui-char").innerText = `SORCERER: ${player.type.toUpperCase()}`;
     document.getElementById("hp-bar").style.width = Math.max(0, player.hp) + "%";
-    document.getElementById("ui-ult").innerText = `ULTIMATE CE FORCE: ${Math.floor(player.ult)}% [G]`;
+    document.getElementById("ui-ult").innerText = `CURSED ENERGY OUTPUT: ${Math.floor(player.ult)}% [G]`;
     document.getElementById("ui-kills").innerText = kills;
     document.getElementById("ui-coins").innerText = coins;
 
     let m = Math.floor(bossTimer / 60); let s = bossTimer % 60;
-    document.getElementById("ui-timer").innerText = `BOSS EVENT PROTOCOL: ${m}:${s < 10 ? '0' : ''}${s}`;
+    document.getElementById("ui-timer").innerText = `CURSE RAID EVENT: ${m}:${s < 10 ? '0' : ''}${s}`;
 
     let wData = WEAPONS[ownedWeapon];
-    document.getElementById("ui-weapon").innerText = `WEAPON CACHE: ${wData.name.toUpperCase()} (+${Math.round((wData.dmgMod-1)*100)}% DMG EFFECT)`;
+    document.getElementById("ui-weapon").innerText = `CURSED TOOL: ${wData.name.toUpperCase()} (+${Math.round((wData.dmgMod-1)*100)}% Damage)`;
 
     let statusText = "Ready";
     if (player.cooldowns.blackFlash > 240) statusText = `LOCKOUT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
     else if (player.cooldowns.blackFlash > 0) statusText = `FAULT (${Math.ceil(player.cooldowns.blackFlash/60)}s)`;
-    document.getElementById("ui-bf").innerText = `BF Combo Track: ${player.bfCount}/5 (${statusText})`;
-    document.getElementById("ui-clash").innerText = activeDomain ? `ACTIVE TERRITORY LAYER: ${activeDomain.name}` : "";
+    document.getElementById("ui-bf").innerText = `Black Flash Spark: ${player.bfCount}/5 (${statusText})`;
+    document.getElementById("ui-clash").innerText = activeDomain ? `DOMAIN: ${activeDomain.name}` : "";
+
+    // Live Cooldown Interface Computations
+    document.getElementById("cd-e").innerText = player.cooldowns.s1 > 0 ? `${Math.ceil(player.cooldowns.s1/60)}s` : "READY";
+    document.getElementById("cd-r").innerText = player.cooldowns.s2 > 0 ? `${Math.ceil(player.cooldowns.s2/60)}s` : "READY";
+    
+    if (player.type === 'nobara') {
+        document.getElementById("cd-b").innerText = player.cooldowns.nailThrow > 0 ? `${Math.ceil(player.cooldowns.nailThrow/60)}s` : "READY";
+    } else {
+        document.getElementById("cd-b").innerText = "N/A";
+    }
 }
 
 // --- CONTROLLER EVENTS ARCHITECTURE ---
@@ -869,7 +957,6 @@ function selectChar(type) {
     player.type = type; player.hp = 100; player.bfCount = 0; player.projectionFrames = 0; player.embeddedNails = 0; closeMenus(); 
 }
 
-// Dynamic Roster Generator Assembly Loop
 const container = document.getElementById("char-list");
 Object.keys(CHARS).forEach(c => {
     let b = document.createElement("button");
@@ -879,7 +966,6 @@ Object.keys(CHARS).forEach(c => {
     container.appendChild(b);
 });
 
-// Structural initialization parameters instantiation deployment
 player = new Entity(200, GROUND - 100, 'nobara', false);
 for(let i=0; i<9; i++) {
     entities.push(new Entity(Math.random()*2600 + 300, GROUND - 100, Object.keys(CHARS)[i % Object.keys(CHARS).length], true));
@@ -890,3 +976,4 @@ engineLifecycle();
 </script>
 </body>
 </html>
+
