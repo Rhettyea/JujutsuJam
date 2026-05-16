@@ -31,6 +31,7 @@ const CHARS = {
     yuji:      { col: "#ff758f", name: "Yuji Itadori", hasDomain: true, domain: "Benevolent Shrine", m1: "Divergent Fist", m2: "Dismantle" },
     gojo:      { col: "#48cae4", name: "Gojo Satoru", hasDomain: true, domain: "Unlimited Void", m1: "Blue Pull", m2: "Red Repel" },
     sukuna:    { col: "#9b2226", name: "Sukuna", hasDomain: true, domain: "Malevolent Shrine", m1: "Cleave Grid", m2: "Fuga Arrow" },
+    ryu:       { col: "#ff5722", name: "Ryu Ishigori", hasDomain: true, domain: "Iron Solitude", m1: "Sweet Discharge", m2: "Granité Blast" },
     mahito:    { col: "#a2d2ff", name: "Mahito", hasDomain: true, domain: "Self-Embodiment", m1: "Soul Hack", m2: "Body Repel" },
     megumi:    { col: "#0f4c5c", name: "Megumi Fushiguro", hasDomain: true, domain: "Chimera Garden", m1: "Divine Dog", m2: "Nue Strike" },
     yuta:      { col: "#e0e1dd", name: "Yuta Okkotsu", hasDomain: true, domain: "Rika Unleashed", m1: "Copy Slate", m2: "Pure Love Burst" },
@@ -51,6 +52,8 @@ let equippedItem = "none";
 let entities = [];
 let particles = [];
 let projectNails = [];
+let activeBeams = [];
+let activeClash = null;
 let impactFrames = []; 
 let mapDebris = []; 
 let player;
@@ -130,7 +133,12 @@ class Entity {
             return;
         }
 
-        // Smoother incremental timeline speed modifier based on current movement state
+        if (activeClash && (activeClash.p1 === this || activeClash.p2 === this)) {
+            this.vx = 0;
+            this.animTimer += 0.02;
+            return;
+        }
+
         let currentVel = Math.abs(this.vx);
         this.animTimer += currentVel > 0.5 ? (currentVel * 0.04) : 0.04;
 
@@ -187,6 +195,10 @@ class Entity {
         let dist = target.x - this.x;
         this.facing = dist > 0 ? 1 : -1;
 
+        if (Math.abs(dist) > 180 && this.type === 'ryu') {
+            if (this.cooldowns.s2 === 0) { this.executeTechnique2(); return; }
+        }
+
         if (Math.abs(dist) > 60) {
             this.vx = this.facing * 4.5;
         }
@@ -212,7 +224,15 @@ class Entity {
         if (keys['a']) { this.vx = -6.5 * speedMod; this.facing = -1; }
         if (keys['d']) { this.vx = 6.5 * speedMod; this.facing = 1; }
         if ((keys['w'] || keys[' ']) && this.y >= GROUND - this.h) { this.vy = -15.0; playSound(240, 'triangle', 0.12, 0.06); keys['w'] = false; keys[' '] = false; }
-        if (keys['m1']) this.executeBasicStrike();
+        if (keys['m1']) {
+            if (activeClash && activeClash.playerInvolved) {
+                activeClash.value += 12; // Button mashing logic for beam struggles
+                keys['m1'] = false;
+                playSound(300, 'sawtooth', 0.05, 0.15);
+            } else {
+                this.executeBasicStrike();
+            }
+        }
         if (keys['e']) this.executeTechnique1();
         if (keys['r']) this.executeTechnique2();
         if (keys['g'] && this.ult >= 100) this.triggerDomainExpansion();
@@ -260,7 +280,18 @@ class Entity {
         keys['e'] = false;
         let scanList = entities.concat([player]);
 
-        if (this.type === 'nobara') {
+        if (this.type === 'ryu') {
+            playSound(180, 'sawtooth', 0.2, 0.25);
+            spawnVisualEffect(this.x + (this.facing * 80), this.y + 20, "#ff5722", 20, 'slash');
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 100) {
+                    t.takeDmg(15, this); t.vx = this.facing * 10;
+                    this.bfWindowTimer = 35; this.lastHitTarget = t;
+                    triggerImpactFrame(t.x, t.y, "#ff5722");
+                }
+            });
+        }
+        else if (this.type === 'nobara') {
             playSound(400, 'sawtooth', 0.15, 0.2);
             for(let i = -1; i <= 1; i++) {
                 projectNails.push({ 
@@ -270,12 +301,8 @@ class Entity {
         }
         else if (this.type === 'mechamaru') {
             playSound(120, 'square', 0.5, 0.3);
-            spawnVisualEffect(this.x + (this.facing * 180), this.y + 20, "#ffb703", 40, 'slash');
-            scanList.forEach(t => {
-                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 380) {
-                    t.takeDmg(20, this); t.vx = this.facing * 12;
-                    triggerImpactFrame(t.x, t.y, "#ffb703");
-                }
+            activeBeams.push({
+                owner: this, x: this.x + (this.facing * 30), y: this.y + 25, vx: this.facing * 16, length: 140, h: 22, col: "#b5838d", dmg: 25, alive: true
             });
         }
         else if (this.type === 'mahito') {
@@ -323,12 +350,18 @@ class Entity {
 
     executeTechnique2() {
         if (this.cooldowns.s2 > 0) return;
-        this.cooldowns.s2 = 70;
+        this.cooldowns.s2 = 80;
         keys['r'] = false;
-        let scanList = entities.concat([player]);
 
-        if (this.type === 'nobara') {
+        if (this.type === 'ryu') {
+            playSound(90, 'sawtooth', 0.5, 0.4);
+            activeBeams.push({
+                owner: this, x: this.x + (this.facing * 30), y: this.y + 15, vx: this.facing * 18, length: 180, h: 32, col: "#ff5722", dmg: 35, alive: true
+            });
+        }
+        else if (this.type === 'nobara') {
             playSound(180, 'sine', 0.4, 0.35); shake = 20;
+            let scanList = entities.concat([player]);
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this) {
                     t.takeDmg(24, this);
@@ -340,6 +373,7 @@ class Entity {
         else if (this.type === 'mechamaru') {
             playSound(80, 'sawtooth', 0.6, 0.4);
             let burstRadius = 200;
+            let scanList = entities.concat([player]);
             spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#b5838d", 45, 'fountain');
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < burstRadius) {
@@ -350,6 +384,7 @@ class Entity {
         }
         else if (this.type === 'mahito') {
             playSound(90, 'square', 0.4, 0.3); shake = 15;
+            let scanList = entities.concat([player]);
             spawnVisualEffect(this.x, this.y, "#ff758f", 40, 'fountain');
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 220) {
@@ -358,14 +393,13 @@ class Entity {
             });
         }
         else if (this.type === 'sukuna') {
-            playSound(100, 'sawtooth', 0.4, 0.3);
-            let fireX = this.x + (this.facing * 200);
-            spawnVisualEffect(fireX, this.y, "#ffb703", 50, 'aura');
-            scanList.forEach(t => {
-                if (t && !t.dead && t !== this && Math.abs(t.x - fireX) < 150) { t.takeDmg(30, this); t.vy = -10; }
+            playSound(70, 'sawtooth', 0.5, 0.4);
+            activeBeams.push({
+                owner: this, x: this.x + (this.facing * 30), y: this.y + 20, vx: this.facing * 15, length: 150, h: 26, col: "#ffb703", dmg: 32, alive: true
             });
         }
         else {
+            let scanList = entities.concat([player]);
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 180) { t.takeDmg(18, this); t.vx = this.facing * 10; }
             });
@@ -427,7 +461,6 @@ class Entity {
         setTimeout(() => { dAlert.style.opacity = "0"; }, 2000);
     }
 
-    // --- REFACTORED FLIPACLIP TRADITIONAL PASSING-STANCE INVERSE KINEMATICS ---
     drawStickFigure(ctx, cx) {
         let col = CHARS[this.type].col;
         ctx.strokeStyle = col;
@@ -440,39 +473,33 @@ class Entity {
         let isMoving = Math.abs(this.vx) > 0.75;
         let isPunching = this.cooldowns.m1 > 0;
         let isCasting = this.cooldowns.s1 > 20 || this.cooldowns.s2 > 40;
+        let isClashing = activeClash && (activeClash.p1 === this || activeClash.p2 === this);
 
         let t = this.animTimer;
-        
-        // Kinematic Weight Profiles
         let lean = 0; 
         let bounceY = 0;
-        let hipAngle = 0;
 
         if (isMoving && isGrounded) {
-            lean = this.facing * 0.18; // Lean slightly into the velocity acceleration
-            
-            // Traditional Animation Curve mapping: Low down curves, high passing sweeps
-            // Sin squared creates a localized high bounce, tracking dual leg strikes per rotation loop
+            lean = this.facing * 0.18; 
             bounceY = Math.sin(t * Math.PI * 2) * 4; 
-            hipAngle = Math.cos(t * Math.PI * 2) * 0.15;
         }
         if (!isGrounded) {
             lean = this.facing * 0.05;
-            bounceY = 3; // Drop hips lower when suspended in free air space
+            bounceY = 3; 
         }
-        if (isPunching) {
-            lean = this.facing * 0.32;
+        if (isPunching || isClashing) {
+            lean = this.facing * 0.35; // Deep brace stance for clashes
+            bounceY = 4;
         }
 
         let isGojoFloat = this.type === 'gojo';
-        let isSukunaCrossed = this.type === 'sukuna' && !isPunching && !isCasting && isGrounded;
+        let isSukunaCrossed = this.type === 'sukuna' && !isPunching && !isCasting && isGrounded && !isClashing;
 
         if (isGojoFloat) {
-            bounceY = Math.sin(globalFrames * 0.05) * 6 - 12; // Constant smooth floating glide
-            isMoving = false; // Override stance behaviors to preserve floating majesty
+            bounceY = Math.sin(globalFrames * 0.05) * 6 - 12; 
+            isMoving = false; 
         }
 
-        // Base Joint Nodes Setup
         let headRadius = 8.5;
         let spineLen = 22;
         let upperLegLen = 17;
@@ -487,6 +514,16 @@ class Entity {
         let pelvisX = originX - (lean * 4);
         let pelvisY = neckY + spineLen;
 
+        // Special rendering feature: Ryu's massive pompadour cannon hair
+        if (this.type === 'ryu') {
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            ctx.moveTo(originX - (this.facing * 4), originY - headRadius + 2);
+            ctx.quadraticCurveTo(originX + (this.facing * 18), originY - headRadius - 12, originX + (this.facing * 22), originY - headRadius + 2);
+            ctx.quadraticCurveTo(originX + (this.facing * 10), originY - 2, originX - (this.facing * 2), originY - 2);
+            ctx.fill();
+        }
+
         // Draw Head
         ctx.beginPath();
         ctx.arc(originX, originY, headRadius, 0, Math.PI * 2);
@@ -498,64 +535,47 @@ class Entity {
         ctx.lineTo(pelvisX, pelvisY);
         ctx.stroke();
 
-        // Compute Leg Kinematic Node Joint Vectors
+        // Leg Kinematic Node Joint Vectors
         let legDraw = (phaseOffset, sideSign) => {
             let footTargetX, footTargetY;
-            
             if (isGrounded && (isMoving || Math.abs(this.vx) > 0.1)) {
-                // Ground phase evaluation map
                 let cycle = (t * Math.PI * 2 + phaseOffset) % (Math.PI * 2);
-                
-                // Elliptical rotation tracing the true swing trajectory of a natural ankle footprint
                 let strideRadius = 16 * this.facing;
-                
-                // Horizontal tracking calculation loop
                 footTargetX = pelvisX + Math.cos(cycle) * strideRadius;
-                
-                // Vertical check: If tracing the under half of rotation cycle, plant it directly flat onto the tarmac
-                if (Math.sin(cycle) > 0) {
-                    footTargetY = GROUND; // Floor Planted Phase
-                } else {
-                    // Swing/Passing Phase: Clean vertical arc clearance
-                    footTargetY = GROUND + Math.sin(cycle) * 11;
-                }
+                if (Math.sin(cycle) > 0) footTargetY = GROUND; 
+                else footTargetY = GROUND + Math.sin(cycle) * 11;
+            } else if (isClashing) {
+                // Wide braced footing stance for beam struggle logic
+                footTargetX = pelvisX + (sideSign === 1 ? 22 : -14) * this.facing;
+                footTargetY = GROUND;
             } else if (!isGrounded) {
-                // Free Hanging Suspension Profile
                 footTargetX = pelvisX + (sideSign * 5) - (this.vx * 1.5);
                 footTargetY = pelvisY + upperLegLen + lowerLegLen - 4;
             } else {
-                // Pure Idle Default Stand Stance
                 footTargetX = pelvisX + sideSign * 8;
                 footTargetY = GROUND;
             }
 
-            // Analytical Two-Joint IK Geometric Solver (Trigonometric Triangle Solver)
             let dx = footTargetX - pelvisX;
             let dy = footTargetY - pelvisY;
             let distanceToFoot = Math.sqrt(dx * dx + dy * dy);
-            
-            // Constrain target threshold boundaries to protect from leg separation bugs
             let maxReach = (upperLegLen + lowerLegLen) * 0.98;
             if (distanceToFoot > maxReach) {
                 footTargetX = pelvisX + (dx / distanceToFoot) * maxReach;
                 footTargetY = pelvisY + (dy / distanceToFoot) * maxReach;
-                dx = footTargetX - pelvisX;
-                dy = footTargetY - pelvisY;
+                dx = footTargetX - pelvisX; dy = footTargetY - pelvisY;
                 distanceToFoot = maxReach;
             }
 
-            // Law of Cosines to extract matching interior knee bend angle profiles
             let angleBase = Math.atan2(dy, dx);
             let cosKnee = (upperLegLen * upperLegLen + distanceToFoot * distanceToFoot - lowerLegLen * lowerLegLen) / (2 * upperLegLen * distanceToFoot);
             cosKnee = Math.max(-1, Math.min(1, cosKnee));
             let angleKneeOffset = Math.acos(cosKnee);
 
-            // Compute Knee Joint Position Node (Bend backwards relative to forward facing velocity vector)
             let bendDirection = -this.facing;
             let kneeX = pelvisX + Math.cos(angleBase + bendDirection * angleKneeOffset) * upperLegLen;
             let kneeY = pelvisY + Math.sin(angleBase + bendDirection * angleKneeOffset) * upperLegLen;
 
-            // Render absolute lines across computed skeletal paths
             ctx.beginPath();
             ctx.moveTo(pelvisX, pelvisY);
             ctx.lineTo(kneeX, kneeY);
@@ -563,399 +583,5 @@ class Entity {
             ctx.stroke();
         };
 
-        // Render Background Loop Leg first, then Foreground Loop Leg for clean layer processing
-        legDraw(Math.PI, -1); // Leg B (180 degrees out of phase)
-        legDraw(0, 1);       // Leg A (Base Timeline Phase Alignment)
-
-        // --- HANDS & UPPER SKELETAL RENDERING MATRIX ---
-        let handL_X, handL_Y, handR_X, handR_Y;
-        let armLen = 16;
-
-        if (isPunching) {
-            let punchProgress = (12 - this.cooldowns.m1) / 12;
-            let extension = Math.sin(punchProgress * Math.PI) * (armLen * 2.1);
-            
-            handL_X = neckX + this.facing * extension;
-            handL_Y = neckY + 1 - (punchProgress * 5);
-            
-            handR_X = neckX - this.facing * 5;
-            handR_Y = neckY + 11;
-        } 
-        else if (isCasting) {
-            handL_X = neckX + this.facing * (armLen * 1.4);
-            handL_Y = neckY - 4;
-            handR_X = neckX + this.facing * (armLen * 1.3);
-            handR_Y = neckY + 4;
-        } 
-        else if (isSukunaCrossed) {
-            handL_X = neckX + this.facing * 7;
-            handL_Y = neckY + 9;
-            handR_X = neckX - this.facing * 3;
-            handR_Y = neckY + 11;
-        }
-        else if (isMoving && isGrounded) {
-            // Natural Arm Swing (Opposite phase to sync naturally with leg stride intervals)
-            let swingAngle = Math.sin(t * Math.PI * 2) * 0.65;
-            handL_X = neckX + Math.sin(swingAngle) * armLen - (this.facing * 3);
-            handL_Y = neckY + Math.cos(swingAngle) * armLen + 4;
-
-            handR_X = neckX - Math.sin(swingAngle) * armLen + (this.facing * 2);
-            handR_Y = neckY - Math.cos(swingAngle) * armLen + 4;
-        }
-        else {
-            // Standard Relaxed Combat Crouch Pose Idle State
-            handL_X = neckX + this.facing * 5;
-            handL_Y = neckY + 14;
-            handR_X = neckX - this.facing * 6;
-            handR_Y = neckY + 13;
-        }
-
-        // Draw Left Arm Setup
-        ctx.beginPath();
-        ctx.moveTo(neckX, neckY);
-        ctx.lineTo(handL_X, handL_Y);
-        ctx.stroke();
-
-        // Draw Right Arm Setup
-        ctx.beginPath();
-        ctx.moveTo(neckX, neckY);
-        ctx.lineTo(handR_X, handR_Y);
-        ctx.stroke();
-
-        // Dynamic Cursed Weapon Layer Attachment Mapping Modifiers
-        if (this === player && equippedItem !== "none") {
-            let itemData = ITEMS[equippedItem];
-            ctx.fillStyle = itemData.col;
-            ctx.strokeStyle = itemData.col;
-            ctx.lineWidth = 3;
-
-            let mainHandX = handL_X;
-            let mainHandY = handL_Y;
-
-            if (equippedItem === "ring") {
-                ctx.beginPath();
-                ctx.arc(mainHandX, mainHandY, 4, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (equippedItem === "staff") {
-                ctx.beginPath();
-                ctx.moveTo(mainHandX - 4, mainHandY - 24);
-                ctx.lineTo(mainHandX + 4, mainHandY + 24);
-                ctx.stroke();
-                if (globalFrames % 4 === 0) {
-                    spawnVisualEffect(mainHandX + (Math.random()*12-6), mainHandY - 12, "#ffb703", 2, 'spark');
-                }
-            } else if (equippedItem === "dagger") {
-                ctx.beginPath();
-                ctx.moveTo(mainHandX, mainHandY);
-                ctx.lineTo(mainHandX + this.facing * 16, mainHandY - 6);
-                ctx.stroke();
-            }
-        }
-    }
-}
-
-// --- ENGINE INITIALIZATION AND INTEGRATED SUBSYSTEM LOOP CONTEXTS ---
-
-function spawnVisualEffect(x, y, color, amount, type) {
-    for (let i = 0; i < amount; i++) {
-        particles.push({
-            x: x, y: y,
-            vx: type === 'fountain' ? (Math.random() * 8 - 4) : type === 'shatter' ? (Math.random() * 14 - 7) : (Math.random() * 4 - 2),
-            vy: type === 'fountain' ? -(Math.random() * 10 + 3) : type === 'shatter' ? (Math.random() * 14 - 7) : (Math.random() * 4 - 2),
-            life: Math.random() * 25 + 15,
-            maxLife: 30,
-            color: color,
-            type: type
-        });
-    }
-}
-
-function triggerImpactFrame(x, y, color) {
-    impactFrames.push({ x: x - camX, y: y, r: 10, maxR: 90, opacity: 1, color: color });
-}
-
-function showMenu(id) {
-    document.querySelectorAll(".menu").forEach(m => m.classList.add("hidden"));
-    document.getElementById(id).classList.remove("hidden");
-    document.getElementById("ui").classList.add("hidden");
-}
-
-function selectItem(key) {
-    equippedItem = key;
-    document.getElementById("ui-item").innerText = `EQUIPPED: ${ITEMS[key].dName}`;
-    showMenu('main-menu');
-}
-
-function openMenuFromGame() {
-    activeDomain = null;
-    showMenu('main-menu');
-}
-
-function populateRoster() {
-    let container = document.getElementById("char-list");
-    container.innerHTML = "";
-    Object.keys(CHARS).forEach(k => {
-        let btn = document.createElement("button");
-        btn.className = "tool-btn";
-        btn.style.borderLeft = `5px solid ${CHARS[k].col}`;
-        btn.innerHTML = `${CHARS[k].name.toUpperCase()}<br><span style='font-size:10px; color:#aaa;'>Primary: ${CHARS[k].m1} | Ult: ${CHARS[k].domain}</span>`;
-        btn.onclick = () => { selectedCharacter = k; showMenu('main-menu'); };
-        container.appendChild(btn);
-    });
-}
-
-function startArenaMode(mode) {
-    currentMode = mode;
-    document.querySelectorAll(".menu").forEach(m => m.classList.add("hidden"));
-    document.getElementById("ui").classList.remove("hidden");
-
-    let cData = CHARS[selectedCharacter];
-    document.getElementById("ui-char").innerText = `SORCERER: ${cData.name.toUpperCase()}`;
-    document.getElementById("ui-char").style.color = cData.col;
-    document.getElementById("lbl-e").innerText = cData.m1.toUpperCase();
-    document.getElementById("lbl-r").innerText = cData.m2.toUpperCase();
-
-    kills = 0;
-    entities = [];
-    particles = [];
-    projectNails = [];
-    impactFrames = [];
-    generateShinjukuMap();
-
-    player = new Entity(300, GROUND - 100, selectedCharacter, false);
-    
-    if (mode === "training") {
-        document.getElementById("arena-title").innerText = "TRAINING ARENA (PASSIVE)";
-        entities.push(new Entity(550, GROUND - 100, "sukuna", true, true));
-    } else {
-        document.getElementById("arena-title").innerText = "SHINJUKU INCIDENT FIELD";
-        entities.push(new Entity(650, GROUND - 100, "sukuna", true));
-        entities.push(new Entity(950, GROUND - 100, "mahito", true));
-    }
-
-    try { if (audioCtx.state === 'suspended') audioCtx.resume(); } catch(e){}
-    playSound(300, 'sine', 0.4, 0.1, 150);
-}
-
-// --- KEYBOARD SETUP ---
-window.addEventListener('keydown', e => {
-    let k = e.key.toLowerCase();
-    keys[k] = true;
-    if([' ', 'w', 'g', 'e', 'r', '0'].includes(k)) e.preventDefault();
-});
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-
-// --- MOBILE INTERACTION CONTROL PAD TRACKING LOOPS ---
-let joyStart = { x: 0, y: 0 };
-let joyMove = { x: 0, y: 0 };
-let joyActive = false;
-
-const dpad = document.getElementById("mobile-dpad");
-const joystick = document.getElementById("mobile-joystick");
-
-dpad.addEventListener('touchstart', e => {
-    joyActive = true;
-    let t = e.touches[0];
-    joyStart = { x: t.clientX, y: t.clientY };
-}, { passive: true });
-
-dpad.addEventListener('touchmove', e => {
-    if (!joyActive) return;
-    let t = e.touches[0];
-    let dx = t.clientX - joyStart.x;
-    let dy = t.clientY - joyStart.y;
-    let dist = Math.sqrt(dx*dx + dy*dy);
-    let maxDist = 45;
-
-    if (dist > maxDist) {
-        dx = (dx / dist) * maxDist;
-        dy = (dy / dist) * maxDist;
-    }
-
-    joystick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-    keys['a'] = dx < -15;
-    keys['d'] = dx > 15;
-});
-
-dpad.addEventListener('touchend', () => {
-    joyActive = false;
-    joystick.style.transform = "translate(0px, 0px)";
-    keys['a'] = false;
-    keys['d'] = false;
-});
-
-function bindMobileButton(id, keyTarget) {
-    let el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('touchstart', e => { e.preventDefault(); keys[keyTarget] = true; });
-    el.addEventListener('touchend', e => { e.preventDefault(); keys[keyTarget] = false; });
-}
-
-bindMobileButton("mb-up", "w");
-bindMobileButton("mb-m1", "m1");
-bindMobileButton("mb-e", "e");
-bindMobileButton("mb-r", "r");
-bindMobileButton("mb-g", "g");
-bindMobileButton("mb-bf", "0");
-
-// --- PRIMARY GAME REFRESH LOOP ---
-function step() {
-    globalFrames++;
-    ctx.clearRect(0, 0, W, H);
-
-    if (shake > 0) {
-        ctx.save();
-        let sx = (Math.random() * 2 - 1) * shake;
-        let sy = (Math.random() * 2 - 1) * shake;
-        ctx.translate(sx, sy);
-        shake *= 0.9;
-        if (shake < 0.2) shake = 0;
-    }
-
-    if (player) {
-        let targetCamX = player.x - W / 2;
-        camX += (targetCamX - camX) * 0.08;
-        if (camX < 0) camX = 0;
-        if (camX > 3500 - W) camX = 3500 - W;
-    }
-
-    // Render Environment Background Lines
-    ctx.fillStyle = "#0c0d16";
-    mapDebris.forEach(b => {
-        ctx.fillRect(b.x - camX, b.y, b.w, b.h);
-        ctx.strokeStyle = "rgba(255,255,255,0.03)";
-        ctx.strokeRect(b.x - camX, b.y, b.w, b.h);
-    });
-
-    // Draw Ground
-    ctx.strokeStyle = activeDomain ? "#ffffff" : "#ff3366";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(0, GROUND);
-    ctx.lineTo(W, GROUND);
-    ctx.stroke();
-
-    // Render Domain Shells
-    if (activeDomain) {
-        activeDomain.life--;
-        if (activeDomain.radius < activeDomain.maxRadius) activeDomain.radius += 18;
-
-        let grad = ctx.createRadialGradient(activeDomain.x - camX, activeDomain.y, 10, activeDomain.x - camX, activeDomain.y, activeDomain.radius);
-        let dCol = CHARS[activeDomain.type].col;
-        grad.addColorStop(0, "rgba(5,6,12,0.85)");
-        grad.addColorStop(0.8, "rgba(10,15,30,0.95)");
-        grad.addColorStop(1, dCol);
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(activeDomain.x - camX, activeDomain.y, activeDomain.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        if (globalFrames % 10 === 0 && activeDomain.type === 'sukuna') {
-            entities.concat([player]).forEach(t => {
-                if (t && !t.dead && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
-                    t.takeDmg(3, activeDomain.owner);
-                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0033", 4, 'slash');
-                }
-            });
-        }
-
-        if (activeDomain.life <= 0) activeDomain = null;
-    }
-
-    // Update Entities
-    if (player) {
-        player.update();
-        player.drawStickFigure(ctx, camX);
-        
-        document.getElementById("hp-bar").style.width = `${(player.hp / player.maxHp) * 100}%`;
-        document.getElementById("ui-ult").innerText = `CURSED ENERGY OUTPUT: ${Math.floor(player.ult)}% ${player.ult >= 100 ? '[G - READY]' : '[G]'}`;
-        document.getElementById("ui-kills").innerText = kills;
-
-        let badgeE = document.getElementById("cd-e");
-        let badgeR = document.getElementById("cd-r");
-        badgeE.innerText = player.cooldowns.s1 > 0 ? `CD: ${Math.ceil(player.cooldowns.s1/60)}s` : "READY";
-        badgeE.style.color = player.cooldowns.s1 > 0 ? "#ff3366" : "#45f3ff";
-        badgeR.innerText = player.cooldowns.s2 > 0 ? `CD: ${Math.ceil(player.cooldowns.s2/60)}s` : "READY";
-        badgeR.style.color = player.cooldowns.s2 > 0 ? "#ff3366" : "#45f3ff";
-
-        let cl = document.getElementById("ui-clash");
-        if (player.bfWindowTimer > 0) {
-            cl.innerText = `BLACK FLASH TIMING WINDOW OPEN [HIT '0' or TAP FLASH]`;
-            cl.style.textShadow = "0 0 8px #ff0055";
-        } else {
-            cl.innerText = "";
-        }
-    }
-
-    entities.forEach(e => {
-        e.update();
-        e.drawStickFigure(ctx, camX);
-        
-        // Draw Bot HP Bar directly over their head node
-        if (!e.dead) {
-            ctx.fillStyle = "rgba(0,0,0,0.7)";
-            ctx.fillRect(e.x - camX - 6, e.y - 18, e.w + 12, 5);
-            ctx.fillStyle = CHARS[e.type].col;
-            ctx.fillRect(e.x - camX - 6, e.y - 18, (e.hp / e.maxHp) * (e.w + 12), 5);
-        }
-    });
-
-    // Update Projectile Nail Structures
-    projectNails.forEach(n => {
-        if (!n.alive) return;
-        n.x += n.vx;
-        n.y += n.vy;
-        ctx.fillStyle = n.col;
-        ctx.fillRect(n.x - camX, n.y, 8, 3);
-
-        let targets = n.owner === player ? entities : [player];
-        targets.forEach(t => {
-            if (t && !t.dead && n.alive) {
-                if (n.x > t.x && n.x < t.x + t.w && n.y > t.y && n.y < t.y + t.h) {
-                    t.takeDmg(10, n.owner);
-                    n.alive = false;
-                    triggerImpactFrame(t.x, t.y, n.col);
-                }
-            }
-        });
-
-        if (Math.abs(n.x - player.x) > 1200) n.alive = false;
-    });
-
-    // Handle Particle System
-    particles.forEach(p => {
-        p.life--;
-        p.x += p.vx;
-        p.y += p.vy;
-        ctx.fillStyle = p.color;
-        let size = p.type === 'shatter' ? Math.max(1, (p.life/p.maxLife)*6) : Math.max(1, (p.life/p.maxLife)*4);
-        ctx.fillRect(p.x - camX, p.y, size, size);
-    });
-    particles = particles.filter(p => p.life > 0);
-
-    // Impact shock rings layout calculation
-    impactFrames.forEach(f => {
-        f.r += (f.maxR - f.r) * 0.12;
-        f.opacity -= 0.05;
-        ctx.strokeStyle = f.color;
-        ctx.lineWidth = 3;
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, f.opacity);
-        ctx.beginPath();
-        ctx.arc(f.x, f.y + 30, f.r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-    });
-    impactFrames = impactFrames.filter(f => f.opacity > 0);
-
-    if (shake > 0) ctx.restore();
-
-    requestAnimationFrame(step);
-}
-
-populateRoster();
-requestAnimationFrame(step);
-</script>
+        legDraw(Math.PI, -1); 
+        legDraw(0
