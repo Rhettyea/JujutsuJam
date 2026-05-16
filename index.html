@@ -106,7 +106,10 @@ const CHARS = {
     mechamaru:{ col: "#7f5539", name: "Mechamaru", domain: "Alchemical Shield" },
     inumaki:  { col: "#e9d8a6", name: "Inumaki", domain: "Cursed Speech Lockout" },
     gojo:     { col: "#48cae4", name: "Gojo Satoru", domain: "Unlimited Void" },
-    naoya:    { col: "#adacc7", name: "Naoya Zen'in", domain: "Time Cell Moon Palace" }
+    naoya:    { col: "#adacc7", name: "Naoya Zen'in", domain: "Time Cell Moon Palace" },
+    nanami:   { col: "#ee9b00", name: "Nanami Kento", domain: "Overtime Balance Barrier" },
+    hanami:   { col: "#2a9d8f", name: "Hanami", domain: "Ceremonial Light Garden" },
+    nobara:   { col: "#cdb4db", name: "Nobara Kugisaki", domain: "Resonance Heartbeat" }
 };
 
 const ITEMS = {
@@ -215,7 +218,6 @@ class Entity {
         if (player && !player.dead) {
             let dist = player.x - this.x;
             this.facing = dist > 0 ? 1 : -1;
-            // Actively follow player horizontally but do NOT attack or invoke damage triggers
             if (Math.abs(dist) > 80) {
                 this.vx = this.facing * 4.2;
             }
@@ -283,13 +285,14 @@ class Entity {
     }
 
     executeBasicStrike() {
-        if (this.cooldowns.m1 > 0 || this.isPassiveDummy) return; // Dummies cannot strike
+        if (this.cooldowns.m1 > 0 || this.isPassiveDummy) return; 
         this.cooldowns.m1 = 15;
 
         let baseDmg = this.isMahoraga ? 18 : 6; 
         let range = this.isMahoraga ? 110 : 65;
 
         if (this.type === 'choso') { baseDmg += this.bloodHardening * 4; this.bloodHardening = 0; }
+        if (this.type === 'nanami') { baseDmg = 13; } // Built-in Ratio baseline
 
         if (!this.isBot) {
             if (equippedItem === "ring") baseDmg *= 1.30;       
@@ -347,7 +350,6 @@ class Entity {
             });
         }
         else if (this.type === 'sukuna') {
-            // Cleave & Dismantle 
             playSound(350, 'sawtooth', 0.15, 0.2);
             spawnVisualEffect(this.x + (this.facing * 100), this.y + 20, "#9b2226", 15, 'slash');
             scanList.forEach(t => {
@@ -395,6 +397,29 @@ class Entity {
                 }
             });
         }
+        else if (this.type === 'nanami') {
+            playSound(280, 'triangle', 0.2, 0.2);
+            let targetX = this.x + (this.facing * 90);
+            spawnVisualEffect(targetX, this.y + 25, "#ee9b00", 20, 'slash');
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 140) {
+                    t.takeDmg(24, this); // High critical ratio strike
+                    t.vx = this.facing * 9;
+                }
+            });
+        }
+        else if (this.type === 'hanami') {
+            playSound(180, 'sine', 0.3, 0.15);
+            let rootX = this.x + (this.facing * 130);
+            spatialFractures.push({ y: GROUND - 20, life: 25, owner: this, customX: rootX, col: "#2a9d8f" });
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - rootX) < 90) { t.takeDmg(14, this); t.vy = -6; }
+            });
+        }
+        else if (this.type === 'nobara') {
+            projectNails.push({ x: this.x + (this.facing * 35), y: this.y + 20, vx: this.facing * 14, owner: this, alive: true, col: "#cdb4db" });
+            playSound(420, 'triangle', 0.1, 0.15);
+        }
         else {
             scanList.forEach(t => {
                 if(t && !t.dead && t !== this && Math.abs(t.x - this.x) < 150) { t.takeDmg(12, this); t.vx = this.facing * 8; }
@@ -427,7 +452,6 @@ class Entity {
             });
         }
         else if (this.type === 'sukuna') {
-            // Fire Arrow (Fuga)
             playSound(400, 'square', 0.4, 0.25, 150);
             projectNails.push({ x: this.x + (this.facing * 40), y: this.y + 15, vx: this.facing * 18, owner: this, alive: true, col: "#ff5500" });
         }
@@ -462,6 +486,37 @@ class Entity {
                 if (t && !t.dead && t !== this && Math.abs(t.x - targetX) < 120) {
                     t.takeDmg(22, this);
                     t.vx = this.facing * 18; t.vy = -8;
+                }
+            });
+        }
+        else if (this.type === 'nanami') {
+            playSound(120, 'square', 0.3, 0.25);
+            shake = 12;
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 160) {
+                    t.takeDmg(18, this);
+                    t.vx = this.facing * 14;
+                }
+            });
+        }
+        else if (this.type === 'hanami') {
+            playSound(90, 'sine', 0.4, 0.2);
+            let targetX = this.x + (this.facing * 160);
+            spawnVisualEffect(targetX, this.y, "#eaf2d7", 15, 'shatter');
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - targetX) < 110) {
+                    t.takeDmg(19, this);
+                    t.vx = this.facing * 4;
+                }
+            });
+        }
+        else if (this.type === 'nobara') {
+            playSound(620, 'sawtooth', 0.3, 0.2);
+            shake = 10;
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 300) {
+                    t.takeDmg(20, this); // Hairpin remote curse burst explosion
+                    spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0055", 20, 'shatter');
                 }
             });
         }
@@ -821,12 +876,11 @@ function startArenaMode(mode) {
     if (mode === "battle") {
         kills = 0;
         let rosterKeys = Object.keys(CHARS);
-        for(let i = 0; i < 6; i++) {
+        for(let i = 0; i < 7; i++) {
             let randomType = rosterKeys[i % rosterKeys.length];
-            entities.push(new Entity(400 + (i * 350), GROUND - 100, randomType, true, false));
+            entities.push(new Entity(400 + (i * 380), GROUND - 100, randomType, true, false));
         }
     } else if (mode === "training") {
-        // Spawns a dedicated passive following dummy with high health pool and 0 raw output attack capacity
         entities.push(new Entity(500, GROUND - 100, 'sukuna', true, true));
     }
     closeMenus();
