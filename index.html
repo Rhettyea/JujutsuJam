@@ -98,18 +98,18 @@ let H = canvas.height = window.innerHeight;
 const GROUND = H - 120;
 
 const CHARS = {
+    gojo:     { col: "#48cae4", name: "Gojo Satoru", domain: "Unlimited Void" },
     sukuna:   { col: "#9b2226", name: "Sukuna", domain: "Malevolent Shrine" },
     megumi:   { col: "#0f4c5c", name: "Megumi", domain: "Mahoraga Awakening" },
+    nanami:   { col: "#ee9b00", name: "Nanami Kento", domain: "Overtime Balance Barrier" },
+    nobara:   { col: "#cdb4db", name: "Nobara Kugisaki", domain: "Resonance Heartbeat" },
+    hanami:   { col: "#2a9d8f", name: "Hanami", domain: "Ceremonial Light Garden" },
+    yuta:     { col: "#e0e1dd", name: "Yuta Okkotsu", domain: "Rika Fully Manifested" },
     choso:    { col: "#6f1d1b", name: "Choso", domain: "Super Nova" },
     jogo:     { col: "#d62828", name: "Jogo", domain: "Coffin of the Iron Mountain" },
-    yuta:     { col: "#e0e1dd", name: "Yuta Okkotsu", domain: "Rika Fully Manifested" },
     mechamaru:{ col: "#7f5539", name: "Mechamaru", domain: "Alchemical Shield" },
     inumaki:  { col: "#e9d8a6", name: "Inumaki", domain: "Cursed Speech Lockout" },
-    gojo:     { col: "#48cae4", name: "Gojo Satoru", domain: "Unlimited Void" },
-    naoya:    { col: "#adacc7", name: "Naoya Zen'in", domain: "Time Cell Moon Palace" },
-    nanami:   { col: "#ee9b00", name: "Nanami Kento", domain: "Overtime Balance Barrier" },
-    hanami:   { col: "#2a9d8f", name: "Hanami", domain: "Ceremonial Light Garden" },
-    nobara:   { col: "#cdb4db", name: "Nobara Kugisaki", domain: "Resonance Heartbeat" }
+    naoya:    { col: "#adacc7", name: "Naoya Zen'in", domain: "Time Cell Moon Palace" }
 };
 
 const ITEMS = {
@@ -292,7 +292,7 @@ class Entity {
         let range = this.isMahoraga ? 110 : 65;
 
         if (this.type === 'choso') { baseDmg += this.bloodHardening * 4; this.bloodHardening = 0; }
-        if (this.type === 'nanami') { baseDmg = 13; } // Built-in Ratio baseline
+        if (this.type === 'nanami') { baseDmg = 13; } 
 
         if (!this.isBot) {
             if (equippedItem === "ring") baseDmg *= 1.30;       
@@ -403,7 +403,7 @@ class Entity {
             spawnVisualEffect(targetX, this.y + 25, "#ee9b00", 20, 'slash');
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 140) {
-                    t.takeDmg(24, this); // High critical ratio strike
+                    t.takeDmg(24, this); 
                     t.vx = this.facing * 9;
                 }
             });
@@ -515,7 +515,7 @@ class Entity {
             shake = 10;
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 300) {
-                    t.takeDmg(20, this); // Hairpin remote curse burst explosion
+                    t.takeDmg(20, this); 
                     spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0055", 20, 'shatter');
                 }
             });
@@ -876,9 +876,10 @@ function startArenaMode(mode) {
     if (mode === "battle") {
         kills = 0;
         let rosterKeys = Object.keys(CHARS);
-        for(let i = 0; i < 7; i++) {
-            let randomType = rosterKeys[i % rosterKeys.length];
-            entities.push(new Entity(400 + (i * 380), GROUND - 100, randomType, true, false));
+        // Spawns bots cleanly covering the full roster profile array over the fields
+        for(let i = 0; i < rosterKeys.length; i++) {
+            let targetType = rosterKeys[i];
+            entities.push(new Entity(450 + (i * 350), GROUND - 100, targetType, true, false));
         }
     } else if (mode === "training") {
         entities.push(new Entity(500, GROUND - 100, 'sukuna', true, true));
@@ -891,10 +892,14 @@ function selectChar(type) {
     showMenu('main-menu'); 
 }
 
+// Generate the fully expanded select panel layout dynamically direct from the array map configuration
 const container = document.getElementById("char-list");
 Object.keys(CHARS).forEach(c => {
-    let b = document.createElement("button"); b.innerText = CHARS[c].name; b.style.borderLeft = `5px solid ${CHARS[c].col}`;
-    b.onclick = () => selectChar(c); container.appendChild(b);
+    let b = document.createElement("button"); 
+    b.innerText = CHARS[c].name; 
+    b.style.borderLeft = `5px solid ${CHARS[c].col}`;
+    b.onclick = () => selectChar(c); 
+    container.appendChild(b);
 });
 
 player = new Entity(200, GROUND - 100, 'gojo', false);
