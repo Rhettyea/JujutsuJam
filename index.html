@@ -506,7 +506,9 @@
             this.x = x; this.y = y; this.type = type; this.isBot = isBot; this.isPassiveDummy = isPassiveDummy;
             this.w = 34; this.h = 68;
             this.vx = 0; this.vy = 0;
-            this.hp = isPassiveDummy ? 5000 : 250; 
+            
+            // AI units now spawn with a fragile 60 HP max instead of 250, while you retain full power
+            this.hp = isBot ? 60 : (isPassiveDummy ? 1200 : 250); 
             this.maxHp = this.hp;
             this.ult = 0;
             this.facing = 1;
@@ -530,6 +532,12 @@
 
         takeDmg(amount, attacker) {
             if (this.dead) return;
+            
+            // Scaled down: If damage source is an AI, it deals drastically lower (25%) impact damage
+            if (attacker && attacker.isBot) {
+                amount = Math.max(1, Math.floor(amount * 0.25));
+            }
+
             if (this.jackpotActive) {
                 this.hp = Math.min(this.maxHp, this.hp + amount * 0.5);
                 spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#00ffaa", 4, 'aura', 3);
@@ -540,13 +548,12 @@
             spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ff0033", 8, 'explosion', 4);
 
             if (attacker && attacker === player) {
-                player.ult = Math.min(100, player.ult + amount * 1.5); 
+                player.ult = Math.min(100, player.ult + amount * 3.5); 
             }
             if (this.hp <= 0) {
                 this.hp = 0;
                 this.dead = true;
                 
-                // Instantly remove and trigger fast drop processing
                 spawnVisualEffect(this.x, this.y, "#ffffff", 40, 'explosion', 5);
                 if (attacker === player) {
                     kills++;
@@ -575,7 +582,7 @@
             if (this.jackpotActive) {
                 this.jackpotTimer--;
                 this.ult = 100;
-                if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + 2.5);
+                if (this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + (this.isBot ? 0.4 : 2.5));
                 if (globalFrames % 3 === 0) {
                     spawnVisualEffect(this.x + Math.random()*this.w, this.y + Math.random()*this.h, "#ff00cc", 2, 'aura', 4);
                     if(this === player && globalFrames % 30 === 0) playSound(800, 'sine', 0.1, 0.15, 1200);
@@ -613,7 +620,6 @@
                     let nearestDist = 99999;
 
                     if (currentMode === "team_raid") {
-                        // Team Raid filters targets based on faction opposition
                         let scanPool = (this.teamSide === "sorcerer") ? 
                             entities.filter(e => e.teamSide === "curse" && !e.dead) : 
                             [player].concat(entities.filter(e => e.teamSide === "sorcerer" && !e.dead)).filter(p => p && !p.dead);
@@ -623,7 +629,6 @@
                             if (d < nearestDist) { nearestDist = d; target = p; }
                         });
                     } else {
-                        // Battle Royale/FFA Mode scans the entire arena (including you and other AIs)
                         let ffaPool = [player].concat(entities).filter(p => p && !p.dead && p !== this);
                         ffaPool.forEach(p => {
                             let d = Math.abs(p.x - this.x);
@@ -636,22 +641,25 @@
                         this.facing = dist > 0 ? 1 : -1;
                         
                         if (Math.abs(dist) > 90) {
-                            let chaseSpeed = this.jackpotActive || this.type === 'toji' ? 9.0 : 5.2;
+                            // Slower pacing on movement tracking vectors
+                            let chaseSpeed = this.jackpotActive || this.type === 'toji' ? 5.0 : 3.0;
                             this.vx = this.facing * chaseSpeed; 
-                            if (Math.random() < 0.02 && this.y >= GROUND - this.h) this.vy = -12;
+                            if (Math.random() < 0.008 && this.y >= GROUND - this.h) this.vy = -11;
                         } else {
-                            if (globalFrames % (this.jackpotActive ? 5 : 12) === 0) {
+                            // Substantially increased framework window spacing to reduce AI strike frequency
+                            if (globalFrames % (this.jackpotActive ? 25 : 48) === 0) {
                                 this.executeBasicStrike();
-                                if (this.bfWindowTimer > 0 && Math.random() < 0.8) this.executeBlackFlashAction();
+                                if (this.bfWindowTimer > 0 && Math.random() < 0.2) this.executeBlackFlashAction();
                             }
                         }
 
-                        if (globalFrames % 45 === 0 && Math.abs(dist) < 450) {
-                            if (Math.random() < 0.5) this.executeTechnique1();
-                            else if (Math.random() < 0.4) this.executeTechnique2();
+                        // Diluted trigger frequency for AI specialized techniques
+                        if (globalFrames % 110 === 0 && Math.abs(dist) < 450) {
+                            if (Math.random() < 0.25) this.executeTechnique1();
+                            else if (Math.random() < 0.15) this.executeTechnique2();
                         }
 
-                        if (this.ult >= 100 && Math.random() < 0.1) {
+                        if (this.ult >= 100 && Math.random() < 0.02) {
                             this.triggerDomainExpansion();
                         }
                     }
@@ -744,7 +752,7 @@
                         }
 
                         t.takeDmg(baseDmg, this);
-                        t.vx = this.facing * knockbackPower;
+                        t.vx = this.facing * (this.isBot ? knockbackPower * 0.5 : knockbackPower);
                         hitRegistered = true;
                         this.bfWindowTimer = 50; 
                         this.lastHitTarget = t;
@@ -765,7 +773,7 @@
 
             if (this.type === 'toji') {
                 playSound(90, 'sawtooth', 0.25, 0.4);
-                this.vx = this.facing * 22;
+                this.vx = this.facing * (this.isBot ? 10 : 22);
                 scanList.forEach(t => {
                     if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 180) {
                         t.takeDmg(45, this); t.vx = this.facing * 12;
@@ -875,7 +883,7 @@
 
             if (this.type === 'toji') {
                 playSound(45, 'square', 0.5, 0.5);
-                this.vy = -14; this.vx = this.facing * 18;
+                this.vy = -14; this.vx = this.facing * (this.isBot ? 8 : 18);
                 scanList.forEach(t => {
                     if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 220) {
                         t.takeDmg(55, this); t.vy = -12;
@@ -886,7 +894,7 @@
 
             if (this.type === 'hakari') {
                 playSound(110, 'sawtooth', 0.4, 0.4);
-                this.vx = this.facing * 25;
+                this.vx = this.facing * (this.isBot ? 12 : 25);
                 scanList.forEach(t => {
                     if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 200) {
                         t.takeDmg(this.jackpotActive ? 65 : 40, this);
@@ -1168,7 +1176,6 @@
             entities.push(new Entity(700, GROUND - 100, "sukuna", true, true, "neutral"));
         } 
         else {
-            // Shinjuku Incident (FFA) - Faction defaults to neutral so everyone squares off
             player = new Entity(300, GROUND - 100, selectedCharacter, false, false, "neutral");
             entities.push(new Entity(700, GROUND - 100, "gojo", true, false, "neutral"));
             entities.push(new Entity(1100, GROUND - 100, "sukuna", true, false, "neutral"));
@@ -1233,8 +1240,9 @@
 
         if (activeDomainClash && !activeDomainClash.waitingForCutscene) {
             if (globalFrames % 6 === 0) {
-                if (activeDomainClash.p1.isBot && Math.random() < 0.65) activeDomainClash.p1Clicks++;
-                if (activeDomainClash.p2.isBot && Math.random() < 0.65) activeDomainClash.p2Clicks++;
+                // Diminished click speed velocity of AI during unexpected domain stalemates
+                if (activeDomainClash.p1.isBot && Math.random() < 0.25) activeDomainClash.p1Clicks++;
+                if (activeDomainClash.p2.isBot && Math.random() < 0.25) activeDomainClash.p2Clicks++;
             }
             let cl = document.getElementById("ui-clash");
             if (cl && activeDomainClash.playerInvolved) {
@@ -1265,7 +1273,10 @@
                 targetList.forEach(t => {
                     if (t && !t.dead && t !== activeDomain.owner && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
                         if (currentMode === "team_raid" && t.teamSide === activeDomain.owner.teamSide) return;
-                        t.takeDmg(6, activeDomain.owner);
+                        
+                        // Scale back active internal ticking environmental hazard damage from bots
+                        let tickDamage = activeDomain.owner.isBot ? 1 : 6;
+                        t.takeDmg(tickDamage, activeDomain.owner);
                         spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, CHARS[activeDomain.type].col, 2, 'spark', 3);
                     }
                 });
@@ -1283,7 +1294,10 @@
                     if (currentMode === "team_raid" && t.teamSide === b.owner.teamSide) return;
                     let beamMin = b.vx > 0 ? b.x : b.x - b.length; let beamMax = b.vx > 0 ? b.x + b.length : b.x;
                     if (t.x + t.w > beamMin && t.x < beamMax && t.y + t.h > b.y && t.y < b.y + b.h) {
-                        t.takeDmg(b.dmg, b.owner); t.vx = b.vx * 0.6; b.alive = false; if (b.owner === player) hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
+                        
+                        // Mitigate impact projectile beams shot from AI elements
+                        let finalBeamDmg = b.owner.isBot ? Math.max(1, Math.floor(b.dmg * 0.25)) : b.dmg;
+                        t.takeDmg(finalBeamDmg, b.owner); t.vx = b.vx * 0.6; b.alive = false; if (b.owner === player) hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
                     }
                 }
             });
