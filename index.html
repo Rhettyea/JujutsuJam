@@ -507,7 +507,6 @@
             this.w = 34; this.h = 68;
             this.vx = 0; this.vy = 0;
             
-            // AI units now spawn with a fragile 60 HP max instead of 250, while you retain full power
             this.hp = isBot ? 60 : (isPassiveDummy ? 1200 : 250); 
             this.maxHp = this.hp;
             this.ult = 0;
@@ -526,6 +525,8 @@
         respawn() {
             this.dead = false;
             this.hp = this.maxHp;
+            this.vx = 0;
+            this.vy = 0;
             this.x = player ? player.x + (Math.random() * 600 - 300) : 500;
             this.y = GROUND - this.h;
         }
@@ -533,7 +534,6 @@
         takeDmg(amount, attacker) {
             if (this.dead) return;
             
-            // Scaled down: If damage source is an AI, it deals drastically lower (25%) impact damage
             if (attacker && attacker.isBot) {
                 amount = Math.max(1, Math.floor(amount * 0.25));
             }
@@ -563,10 +563,16 @@
                     setTimeout(() => { openMenuFromGame(); }, 1500);
                 } else {
                     setTimeout(() => {
-                        if (!this.isPassiveDummy && currentMode === "battle" && entities.length < 7) {
-                            let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
-                            let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
-                            entities.push(new Entity(player ? player.x + (Math.random() * 1000 - 500) : 600, GROUND - 100, randType, true, false, "neutral"));
+                        if (this.isPassiveDummy) {
+                            this.respawn();
+                        } else if (currentMode === "battle") {
+                            // Safely remove dead entities to prevent ghost collision targets
+                            entities = entities.filter(e => e !== this);
+                            if (entities.length < 5) {
+                                let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
+                                let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
+                                entities.push(new Entity(player ? player.x + (Math.random() * 1000 - 500) : 600, GROUND - 100, randType, true, false, "neutral"));
+                            }
                         }
                     }, 400);
                 }
@@ -574,10 +580,7 @@
         }
 
         update() {
-            if (this.dead) {
-                if (this.isPassiveDummy) this.respawn();
-                return;
-            }
+            if (this.dead) return;
 
             if (this.jackpotActive) {
                 this.jackpotTimer--;
@@ -600,13 +603,18 @@
                 return;
             }
 
+            // Fixed the freeze logic tracking checking to prevent AI from infinitely locking up
             let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
             if (isFrozenByGojo) {
                 if (currentMode !== "team_raid" || activeDomain.owner.teamSide !== this.teamSide) {
-                    this.vx = 0; this.vy = 0; 
+                    this.vx = 0; 
+                    if (this.vy < 0) this.vy = 0; // Don't float up infinitely
                     if (globalFrames % 10 === 0) {
                         spawnVisualEffect(this.x + Math.random()*this.w, this.y + Math.random()*this.h, "#48cae4", 2, 'spark', 2);
                     }
+                    this.vy += 0.65;
+                    this.y += this.vy;
+                    if (this.y + this.h > GROUND) { this.y = GROUND - this.h; this.vy = 0; }
                     return;
                 }
             }
@@ -641,19 +649,16 @@
                         this.facing = dist > 0 ? 1 : -1;
                         
                         if (Math.abs(dist) > 90) {
-                            // Slower pacing on movement tracking vectors
                             let chaseSpeed = this.jackpotActive || this.type === 'toji' ? 5.0 : 3.0;
                             this.vx = this.facing * chaseSpeed; 
                             if (Math.random() < 0.008 && this.y >= GROUND - this.h) this.vy = -11;
                         } else {
-                            // Substantially increased framework window spacing to reduce AI strike frequency
                             if (globalFrames % (this.jackpotActive ? 25 : 48) === 0) {
                                 this.executeBasicStrike();
                                 if (this.bfWindowTimer > 0 && Math.random() < 0.2) this.executeBlackFlashAction();
                             }
                         }
 
-                        // Diluted trigger frequency for AI specialized techniques
                         if (globalFrames % 110 === 0 && Math.abs(dist) < 450) {
                             if (Math.random() < 0.25) this.executeTechnique1();
                             else if (Math.random() < 0.15) this.executeTechnique2();
@@ -740,6 +745,7 @@
             let scanList = entities.concat(player ? [player] : []);
             for(let i=0; i<scanList.length; i++) {
                 let t = scanList[i];
+                // Added structural verification checks to stop ghost targets from eating inputs
                 if (t && !t.dead && t !== this) {
                     if (currentMode === "team_raid" && this.teamSide === t.teamSide) continue;
 
@@ -768,14 +774,14 @@
         executeTechnique1() {
             if (this.cooldowns.s1 > 0) return;
             this.cooldowns.s1 = this.jackpotActive ? 10 : 30; 
-            let scanList = entities.concat(player ? [player] : []);
-            if (currentMode === "team_raid") scanList = scanList.filter(t => t && t.teamSide !== this.teamSide);
+            let scanList = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
+            if (currentMode === "team_raid") scanList = scanList.filter(t => t.teamSide !== this.teamSide);
 
             if (this.type === 'toji') {
                 playSound(90, 'sawtooth', 0.25, 0.4);
                 this.vx = this.facing * (this.isBot ? 10 : 22);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 180) {
+                    if (t !== this && Math.abs(t.x - this.x) < 180) {
                         t.takeDmg(45, this); t.vx = this.facing * 12;
                         triggerImpactFrame(t.x, t.y, "#4a4e69");
                     }
@@ -788,7 +794,7 @@
                 let dropX = this.x + (this.facing * 120);
                 spawnVisualEffect(dropX, this.y, "#ff00cc", 25, 'shatter', 6);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - dropX) < 90) {
+                    if (t !== this && Math.abs(t.x - dropX) < 90) {
                         t.takeDmg(this.jackpotActive ? 50 : 30, this);
                         t.vx = this.facing * 14;
                     }
@@ -799,7 +805,7 @@
                 let targetPullX = this.x + (this.facing * 350);
                 spawnVisualEffect(targetPullX, this.y + 20, "#00b4d8", 25, 'fountain', 4);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 450) {
+                    if (t !== this && Math.abs(t.x - this.x) < 450) {
                         t.x = this.x + (this.facing * 60); 
                         t.takeDmg(28, this);
                         this.bfWindowTimer = 50; this.lastHitTarget = t;
@@ -813,7 +819,7 @@
                 let rangeX = 220;
                 spawnVisualEffect(this.x + (this.facing * rangeX/2), this.y + 20, "#ff0033", 30, 'slash', 2);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < rangeX) {
+                    if (t !== this && Math.abs(t.x - this.x) < rangeX) {
                         t.takeDmg(35, this); t.vx = this.facing * 4;
                         this.bfWindowTimer = 50; this.lastHitTarget = t;
                         triggerImpactFrame(t.x, t.y, "#9b2226");
@@ -824,11 +830,11 @@
             else if (this.type === 'yuji') {
                 playSound(140, 'sawtooth', 0.25, 0.3);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 140) {
+                    if (t !== this && Math.abs(t.x - this.x) < 140) {
                         t.takeDmg(20, this); t.vx = this.facing * 10;
                         this.bfWindowTimer = 50; this.lastHitTarget = t;
                         setTimeout(() => {
-                            if (!t.dead) { 
+                            if (t && !t.dead) { 
                                 t.takeDmg(30, this); 
                                 spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff3366", 20, 'shatter', 5);
                                 playSound(60, 'square', 0.2, 0.4);
@@ -843,14 +849,14 @@
                 let fireX = this.x + (this.facing * 150);
                 spawnVisualEffect(fireX, this.y + 20, "#ff5500", 30, 'fountain', 5);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 250) { t.takeDmg(32, this); t.vx = this.facing * 12; }
+                    if (t !== this && Math.abs(t.x - this.x) < 250) { t.takeDmg(32, this); t.vx = this.facing * 12; }
                 });
             }
             else if (this.type === 'inumaki') {
                 playSound(100, 'sine', 0.5, 0.5, 20);
                 spawnVisualEffect(this.x + (this.facing * 200), this.y + 20, "#e9d8a6", 40, 'explosion', 8);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 380) {
+                    if (t !== this && Math.abs(t.x - this.x) < 380) {
                         t.takeDmg(40, this); t.vx = this.facing * 25; t.vy = -5;
                     }
                 });
@@ -861,12 +867,12 @@
                 let targetX = this.x + (this.facing * 200);
                 spawnVisualEffect(targetX, GROUND - 40, "#0f4c5c", 25, 'fountain', 5);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - targetX) < 120) { t.takeDmg(35, this); t.vy = -14; }
+                    if (t !== this && Math.abs(t.x - targetX) < 120) { t.takeDmg(35, this); t.vy = -14; }
                 });
             }
             else {
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 180) {
+                    if (t !== this && Math.abs(t.x - this.x) < 180) {
                         t.takeDmg(25, this); t.vx = this.facing * 11;
                         this.bfWindowTimer = 50; this.lastHitTarget = t;
                         spawnVisualEffect(t.x, t.y, CHARS[this.type].col, 10, 'explosion', 4);
@@ -878,14 +884,14 @@
         executeTechnique2() {
             if (this.cooldowns.s2 > 0) return;
             this.cooldowns.s2 = this.jackpotActive ? 15 : 50; 
-            let scanList = entities.concat(player ? [player] : []);
-            if (currentMode === "team_raid") scanList = scanList.filter(t => t && t.teamSide !== this.teamSide);
+            let scanList = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
+            if (currentMode === "team_raid") scanList = scanList.filter(t => t.teamSide !== this.teamSide);
 
             if (this.type === 'toji') {
                 playSound(45, 'square', 0.5, 0.5);
                 this.vy = -14; this.vx = this.facing * (this.isBot ? 8 : 18);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 220) {
+                    if (t !== this && Math.abs(t.x - this.x) < 220) {
                         t.takeDmg(55, this); t.vy = -12;
                     }
                 });
@@ -896,7 +902,7 @@
                 playSound(110, 'sawtooth', 0.4, 0.4);
                 this.vx = this.facing * (this.isBot ? 12 : 25);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 200) {
+                    if (t !== this && Math.abs(t.x - this.x) < 200) {
                         t.takeDmg(this.jackpotActive ? 65 : 40, this);
                         t.vx = this.facing * 22; t.vy = -6;
                     }
@@ -908,7 +914,7 @@
                 let pushRange = 350;
                 spawnVisualEffect(this.x + (this.facing * 80), this.y + 10, "#ff0055", 40, 'explosion', 7);
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < pushRange) {
+                    if (t !== this && Math.abs(t.x - this.x) < pushRange) {
                         t.takeDmg(42, this); t.vx = this.facing * 28; 
                         triggerImpactFrame(t.x, t.y, "#ff0055");
                     }
@@ -945,7 +951,7 @@
             }
             else {
                 scanList.forEach(t => {
-                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 220) {
+                    if (t !== this && Math.abs(t.x - this.x) < 220) {
                         t.takeDmg(35, this); t.vx = this.facing * 14; t.vy = -7;
                         spawnVisualEffect(t.x, t.y, CHARS[this.type].col, 15, 'shatter', 4);
                     }
@@ -1239,63 +1245,72 @@
         ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
 
         if (activeDomainClash && !activeDomainClash.waitingForCutscene) {
-            if (globalFrames % 6 === 0) {
-                // Diminished click speed velocity of AI during unexpected domain stalemates
-                if (activeDomainClash.p1.isBot && Math.random() < 0.25) activeDomainClash.p1Clicks++;
-                if (activeDomainClash.p2.isBot && Math.random() < 0.25) activeDomainClash.p2Clicks++;
-            }
-            let cl = document.getElementById("ui-clash");
-            if (cl && activeDomainClash.playerInvolved) {
-                let userVal = activeDomainClash.p1 === player ? activeDomainClash.p1Clicks : activeDomainClash.p2Clicks;
-                cl.innerText = `🌌 DOMAIN CLASH! MASH CLICK/M1! 🌌\nFORCE STRENGTH: ${userVal} / ${activeDomainClash.targetClicks}`;
-            }
-            if (activeDomainClash.p1Clicks >= activeDomainClash.targetClicks || activeDomainClash.p2Clicks >= activeDomainClash.targetClicks) {
-                let p1Wins = activeDomainClash.p1Clicks >= activeDomainClash.targetClicks;
-                let winner = p1Wins ? activeDomainClash.p1 : activeDomainClash.p2;
-                let loser = p1Wins ? activeDomainClash.p2 : activeDomainClash.p1;
+            // Check if participants are still valid/alive
+            if (activeDomainClash.p1.dead || activeDomainClash.p2.dead) {
+                activeDomainClash = null;
+                let cl = document.getElementById("ui-clash");
+                if (cl) cl.innerText = "";
+            } else {
+                if (globalFrames % 6 === 0) {
+                    if (activeDomainClash.p1.isBot && Math.random() < 0.25) activeDomainClash.p1Clicks++;
+                    if (activeDomainClash.p2.isBot && Math.random() < 0.25) activeDomainClash.p2Clicks++;
+                }
+                let cl = document.getElementById("ui-clash");
+                if (cl && activeDomainClash.playerInvolved) {
+                    let userVal = activeDomainClash.p1 === player ? activeDomainClash.p1Clicks : activeDomainClash.p2Clicks;
+                    cl.innerText = `🌌 DOMAIN CLASH! MASH CLICK/M1! 🌌\nFORCE STRENGTH: ${userVal} / ${activeDomainClash.targetClicks}`;
+                }
+                if (activeDomainClash.p1Clicks >= activeDomainClash.targetClicks || activeDomainClash.p2Clicks >= activeDomainClash.targetClicks) {
+                    let p1Wins = activeDomainClash.p1Clicks >= activeDomainClash.targetClicks;
+                    let winner = p1Wins ? activeDomainClash.p1 : activeDomainClash.p2;
+                    let loser = p1Wins ? activeDomainClash.p2 : activeDomainClash.p1;
 
-                loser.takeDmg(120, winner); loser.vx = (loser.x > winner.x ? 1 : -1) * 35; loser.vy = -12;
-                activeDomain = { owner: winner, type: winner.type, name: CHARS[winner.type].domain, x: winner.x + winner.w/2, y: winner.y + winner.h/2, radius: 400, maxRadius: 750, life: 450 };
-                if (winner.type === 'hakari') { winner.jackpotActive = true; winner.jackpotTimer = 650; winner.hp = winner.maxHp; }
-                activeDomainClash = null; if(cl) cl.innerText = ""; shake = 50;
+                    loser.takeDmg(120, winner); loser.vx = (loser.x > winner.x ? 1 : -1) * 35; loser.vy = -12;
+                    activeDomain = { owner: winner, type: winner.type, name: CHARS[winner.type].domain, x: winner.x + winner.w/2, y: winner.y + winner.h/2, radius: 400, maxRadius: 750, life: 450 };
+                    if (winner.type === 'hakari') { winner.jackpotActive = true; winner.jackpotTimer = 650; winner.hp = winner.maxHp; }
+                    activeDomainClash = null; if(cl) cl.innerText = ""; shake = 50;
+                }
             }
         }
 
         if (activeDomain) {
-            activeDomain.life--; if (activeDomain.radius < activeDomain.maxRadius) activeDomain.radius += 25;
-            let grad = ctx.createRadialGradient(activeDomain.x - camX, activeDomain.y, 0, activeDomain.x - camX, activeDomain.y, activeDomain.radius);
-            grad.addColorStop(0, "rgba(5, 6, 15, 0.25)"); grad.addColorStop(0.85, "rgba(10, 12, 28, 0.7)"); grad.addColorStop(1, CHARS[activeDomain.type].col);
-            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(activeDomain.x - camX, activeDomain.y, activeDomain.radius, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
+            // Check if domain owner died unexpectedly to safely dismantle the canvas barrier
+            if (activeDomain.owner.dead) {
+                activeDomain = null;
+            } else {
+                activeDomain.life--; if (activeDomain.radius < activeDomain.maxRadius) activeDomain.radius += 25;
+                let grad = ctx.createRadialGradient(activeDomain.x - camX, activeDomain.y, 0, activeDomain.x - camX, activeDomain.y, activeDomain.radius);
+                grad.addColorStop(0, "rgba(5, 6, 15, 0.25)"); grad.addColorStop(0.85, "rgba(10, 12, 28, 0.7)"); grad.addColorStop(1, CHARS[activeDomain.type].col);
+                ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(activeDomain.x - camX, activeDomain.y, activeDomain.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3; ctx.stroke();
 
-            if (globalFrames % 8 === 0) {
-                let targetList = entities.concat(player ? [player] : []);
-                targetList.forEach(t => {
-                    if (t && !t.dead && t !== activeDomain.owner && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
-                        if (currentMode === "team_raid" && t.teamSide === activeDomain.owner.teamSide) return;
-                        
-                        // Scale back active internal ticking environmental hazard damage from bots
-                        let tickDamage = activeDomain.owner.isBot ? 1 : 6;
-                        t.takeDmg(tickDamage, activeDomain.owner);
-                        spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, CHARS[activeDomain.type].col, 2, 'spark', 3);
-                    }
-                });
+                if (globalFrames % 8 === 0) {
+                    let targetList = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
+                    targetList.forEach(t => {
+                        if (t !== activeDomain.owner && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
+                            if (currentMode === "team_raid" && t.teamSide === activeDomain.owner.teamSide) return;
+                            
+                            let tickDamage = activeDomain.owner.isBot ? 1 : 6;
+                            t.takeDmg(tickDamage, activeDomain.owner);
+                            spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, CHARS[activeDomain.type].col, 2, 'spark', 3);
+                        }
+                    });
+                }
+                if (activeDomain.life <= 0) activeDomain = null;
             }
-            if (activeDomain.life <= 0) activeDomain = null;
         }
 
         activeBeams.forEach(b => {
             if (!b.alive) return; b.x += b.vx; if (b.length < 1200) b.length += 45;
             ctx.fillStyle = b.col; ctx.fillRect(b.vx > 0 ? b.x - camX : b.x - b.length - camX, b.y, b.length, b.h);
 
-            let scanTargets = entities.concat(player ? [player] : []);
+            let scanTargets = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
             scanTargets.forEach(t => {
-                if (t && !t.dead && t !== b.owner) {
+                if (t !== b.owner) {
                     if (currentMode === "team_raid" && t.teamSide === b.owner.teamSide) return;
                     let beamMin = b.vx > 0 ? b.x : b.x - b.length; let beamMax = b.vx > 0 ? b.x + b.length : b.x;
                     if (t.x + t.w > beamMin && t.x < beamMax && t.y + t.h > b.y && t.y < b.y + b.h) {
                         
-                        // Mitigate impact projectile beams shot from AI elements
                         let finalBeamDmg = b.owner.isBot ? Math.max(1, Math.floor(b.dmg * 0.25)) : b.dmg;
                         t.takeDmg(finalBeamDmg, b.owner); t.vx = b.vx * 0.6; b.alive = false; if (b.owner === player) hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
                     }
@@ -1312,8 +1327,8 @@
         }
 
         entities.forEach(e => {
-            e.drawRectangleModel(ctx, camX);
-            if (!e.dead) {
+            if (e && !e.dead) {
+                e.drawRectangleModel(ctx, camX);
                 ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(e.x - camX - 10, e.y - 20, e.w + 20, 6);
                 ctx.fillStyle = CHARS[e.type].col; ctx.fillRect(e.x - camX - 10, e.y - 20, (e.hp / e.maxHp) * (e.w + 20), 6);
                 if (currentMode === "team_raid") {
