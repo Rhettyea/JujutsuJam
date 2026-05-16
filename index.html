@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>JujutsuJam - Battle Arena</title>
+    <title>JujutsuJam - Battle & Training Arena</title>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; user-select: none; }
         #gameCanvas { display: block; background: #0b0c10; }
@@ -15,6 +15,7 @@
         #domain-alert { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 45px; font-weight: bold; pointer-events: none; text-shadow: 0 0 15px #000, 0 0 25px rgba(255,255,255,0.5); opacity: 0; text-transform: uppercase; letter-spacing: 6px; z-index: 8; text-align: center;}
         #cooldown-panel { margin-top: 5px; font-size: 12px; display: flex; gap: 10px; flex-wrap: wrap; max-width: 600px; }
         .cd-badge { background: rgba(0,0,0,0.6); border: 1px solid #45f3ff; padding: 2px 6px; border-radius: 3px; }
+        .tool-btn { font-size: 11px; margin: 3px 0; padding: 6px; }
     </style>
 </head>
 <body>
@@ -25,6 +26,7 @@
     <div id="ui">
         <div>
             <div id="ui-char" style="font-weight: bold; color: #45f3ff;">SORCERER: READY</div>
+            <div id="ui-item" style="font-size:12px; color:#ffb703; margin-bottom:2px;">EQUIPPED: NONE</div>
             <div style="width:240px; height:16px; background:rgba(0,0,0,0.7); border:2px solid #66fcf1; margin: 4px 0; border-radius: 4px; overflow: hidden;">
                 <div id="hp-bar" style="width:100%; height:100%; background:linear-gradient(90deg, #00ffcc, #00ff66);"></div>
             </div>
@@ -36,10 +38,10 @@
             </div>
         </div>
         <div style="text-align:right; font-family: monospace;">
-            <div style="font-size: 18px; color: #ee9b00;">JUJUTSU CHAOS ARENA</div>
-            <div>EXORCISED CURSES: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">0</span></div>
+            <div id="arena-title" style="font-size: 18px; color: #ee9b00;">JUJUTSU BATTLEGROUNDS</div>
+            <div id="score-label">EXORCISED CURSES: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">0</span></div>
             <div id="ui-clash" style="color: #ffb703; font-weight: bold; font-size:13px; margin-top:4px;"></div>
-            <button onclick="openMenuFromGame()" style="width: auto; padding: 4px 10px; font-size: 11px; margin-top: 5px; background: #222; border-color: #444;">SWITCH CHARACTER</button>
+            <button onclick="openMenuFromGame()" style="width: auto; padding: 4px 10px; font-size: 11px; margin-top: 5px; background: #222; border-color: #444; pointer-events: auto;">MAIN MENU</button>
         </div>
     </div>
 
@@ -47,7 +49,9 @@
     <div id="main-menu" class="menu">
         <h1 style="color:#45f3ff; margin-top:0; letter-spacing: 3px; text-shadow: 0 0 10px #45f3ff;">JUJUTSU ARENA</h1>
         <button onclick="showMenu('char-menu')">Select Sorcerer</button>
-        <button onclick="closeMenus()" style="background:#00ffcc; color:#000; border-color: #fff; margin-top:15px; font-size:16px;">ENTER BATTLEFIELD</button>
+        <button onclick="showMenu('vault-menu')" style="border-color: #ffb703; color: #ffb703;">Cursed Tool Vault</button>
+        <button onclick="startArenaMode('battle')" style="background:#ff0055; color:#fff; border-color: #fff; margin-top:15px; font-size:14px;">ENTER BATTLEFIELD</button>
+        <button onclick="startArenaMode('training')" style="background:#00ffcc; color:#000; border-color: #fff; margin-top:5px; font-size:14px;">ENTER TRAINING ROOM</button>
     </div>
 
     <!-- ROSTER MENU -->
@@ -55,6 +59,17 @@
         <h2 style="color:#66fcf1; margin-top:0;">SELECT CHARACTER</h2>
         <div id="char-list" style="max-height: 280px; overflow-y: auto; padding-right: 5px;"></div>
         <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 10px;">RETURN</button>
+    </div>
+
+    <!-- CURSED TOOL VAULT -->
+    <div id="vault-menu" class="menu hidden">
+        <h2 style="color:#ffb703; margin-top:0; letter-spacing: 1px;">CURSED VAULT</h2>
+        <p style="font-size:11px; color:#aaa; margin-bottom:15px;">Equip an artifact to enhance your battlefield baseline threshold capacities.</p>
+        <button class="tool-btn" style="border-left: 5px solid #ff00cc;" onclick="selectItem('ring')">Yuta's Ring (+30% DMG)</button>
+        <button class="tool-btn" style="border-left: 5px solid #ffb703;" onclick="selectItem('staff')">Kashimo's Staff (+35% SPD)</button>
+        <button class="tool-btn" style="border-left: 5px solid #ee2400;" onclick="selectItem('dagger')">Slaughter Demon (+45% DMG)</button>
+        <button class="tool-btn" style="background:#222; color:#fff;" onclick="selectItem('none')">Unequip Artifact</button>
+        <button onclick="showMenu('main-menu')" style="background:#3d5a80; margin-top: 15px;">RETURN</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -90,26 +105,39 @@ const CHARS = {
     yuta:     { col: "#e0e1dd", name: "Yuta Okkotsu", domain: "Rika Fully Manifested" },
     mechamaru:{ col: "#7f5539", name: "Mechamaru", domain: "Alchemical Shield" },
     inumaki:  { col: "#e9d8a6", name: "Inumaki", domain: "Cursed Speech Lockout" },
-    gojo:     { col: "#48cae4", name: "Gojo Satoru", domain: "Unlimited Void" }
+    gojo:     { col: "#48cae4", name: "Gojo Satoru", domain: "Unlimited Void" },
+    naoya:    { col: "#adacc7", name: "Naoya Zen'in", domain: "Time Cell Moon Palace" }
 };
 
+const ITEMS = {
+    none:   { name: "NONE", dName: "NONE", col: "#ffffff" },
+    ring:   { name: "RING", dName: "YUTA'S RING", col: "#ff00cc" },
+    staff:  { name: "STAFF", dName: "KASHIMO'S STAFF", col: "#ffb703" },
+    dagger: { name: "DAGGER", dName: "SLAUGHTER DEMON", col: "#ee2400" }
+};
+
+let equippedItem = "none";
 let entities = [];
 let particles = [];
 let projectNails = [];
 let spatialFractures = [];
+let projectionFrames = []; // Stores frame trails left behind by Naoya's moves
 let player;
 let camX = 0;
 let shake = 0;
 let kills = 0;
 let globalFrames = 0;
 let activeDomain = null; 
+let currentMode = "battle"; 
 
 class Entity {
-    constructor(x, y, type, isBot = false) {
-        this.x = x; this.y = y; this.type = type; this.isBot = isBot;
+    constructor(x, y, type, isBot = false, isPassiveDummy = false) {
+        this.x = x; this.y = y; this.type = type; this.isBot = isBot; this.isPassiveDummy = isPassiveDummy;
         this.w = 40; this.h = 65;
         this.vx = 0; this.vy = 0;
-        this.hp = 120; this.maxHp = 120; this.ult = 0;
+        this.hp = isPassiveDummy ? 500 : 120; 
+        this.maxHp = this.hp;
+        this.ult = 0;
         this.facing = 1;
         this.dead = false;
         this.cooldowns = { s1: 0, s2: 0, m1: 0, blackFlash: 0 };
@@ -119,15 +147,21 @@ class Entity {
         this.stunTimer = 0; 
         this.rikaAwakened = false;
         this.rikaTimer = 0;
+        
+        this.projectionFreezeTimer = 0; // Naoya specific target freeze tracking
     }
 
     update() {
-        if (this.dead) return;
+        if (this.dead) {
+            if (this.isPassiveDummy) this.respawn();
+            return;
+        }
 
-        // Unlimited Void Freeze check / Normal Stun
+        // Unlimited Void Freeze check / Normal Stun / Projection Sorcery 24fps Freeze Rule
         let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
-        if (this.stunTimer > 0 || isFrozenByGojo) {
+        if (this.stunTimer > 0 || isFrozenByGojo || this.projectionFreezeTimer > 0) {
             if (this.stunTimer > 0 && !isFrozenByGojo) this.stunTimer--;
+            if (this.projectionFreezeTimer > 0) this.projectionFreezeTimer--;
             this.vx = 0;
             this.vy += 0.70;
             this.x += this.vx; this.y += this.vy;
@@ -144,7 +178,6 @@ class Entity {
             this.rikaTimer--;
             if (this.rikaTimer <= 0) this.rikaAwakened = false;
             if (globalFrames % 40 === 0) {
-                // Rika scans for any target close to Yuta
                 let target = this.getClosestTarget();
                 if (target && Math.abs(target.x - this.x) < 250) {
                     target.takeDmg(14, this);
@@ -170,11 +203,29 @@ class Entity {
 
         Object.keys(this.cooldowns).forEach(k => { if(this.cooldowns[k] > 0) this.cooldowns[k]--; });
 
-        if (this.isBot) this.processProximityAI();
+        if (this.isPassiveDummy) this.processDummyAI();
+        else if (this.isBot) this.processProximityAI();
         else this.processInput();
+
+        // Cosmetic dynamic tool trailing effect
+        if (!this.isBot && equippedItem !== "none" && globalFrames % 4 === 0) {
+            spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, ITEMS[equippedItem].col, 1, 'spark');
+        }
     }
 
-    // Proximity Engine: Find the absolute closest live target (AI or Player)
+    processDummyAI() {
+        if (player && !player.dead) {
+            let dist = player.x - this.x;
+            this.facing = dist > 0 ? 1 : -1;
+            if (Math.abs(dist) > 90) {
+                this.vx = this.facing * 3.8;
+            }
+            if (player.y < this.y - 50 && this.y >= GROUND - this.h && Math.random() < 0.05) {
+                this.vy = -12;
+            }
+        }
+    }
+
     getClosestTarget() {
         let targets = entities.concat([player]).filter(t => t && !t.dead && t !== this);
         if (targets.length === 0) return null;
@@ -200,10 +251,10 @@ class Entity {
             this.facing = dist > 0 ? 1 : -1;
 
             if (Math.abs(dist) > 55) {
-                this.vx = this.facing * (this.isMahoraga ? 3.5 : 4.2);
+                let baseSpd = this.type === 'naoya' ? 6.2 : 4.2; // Naoya is naturally faster
+                this.vx = this.facing * (this.isMahoraga ? 3.5 : baseSpd);
             }
 
-            // Attack sequencing logic
             if (globalFrames % 30 === 0 && Math.random() < 0.8) {
                 let absD = Math.abs(dist);
                 if (absD < 80) this.executeBasicStrike();
@@ -218,8 +269,12 @@ class Entity {
     }
 
     processInput() {
-        if (keys['a']) { this.vx = this.isMahoraga ? -4.5 : -5.8; this.facing = -1; }
-        if (keys['d']) { this.vx = this.isMahoraga ? 4.5 : 5.8; this.facing = 1; }
+        let speedMod = 1.0;
+        if (equippedItem === "staff") speedMod = 1.35; 
+        if (this.type === 'naoya') speedMod *= 1.20; // Naoya passive speed advantage
+
+        if (keys['a']) { this.vx = (this.isMahoraga ? -4.5 : -5.8) * speedMod; this.facing = -1; }
+        if (keys['d']) { this.vx = (this.isMahoraga ? 4.5 : 5.8) * speedMod; this.facing = 1; }
         if ((keys['w'] || keys[' ']) && this.y >= GROUND - this.h) { this.vy = this.isMahoraga ? -12 : -14.5; playSound(260, 'triangle', 0.1, 0.05); }
         if (keys['m1']) this.executeBasicStrike();
         if (keys['e']) this.executeTechnique1();
@@ -236,6 +291,11 @@ class Entity {
         let range = this.isMahoraga ? 110 : 65;
 
         if (this.type === 'choso') { baseDmg += this.bloodHardening * 4; this.bloodHardening = 0; }
+
+        if (!this.isBot) {
+            if (equippedItem === "ring") baseDmg *= 1.30;       
+            if (equippedItem === "dagger") baseDmg *= 1.45;     
+        }
 
         let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
         let hitRegistered = false;
@@ -263,7 +323,34 @@ class Entity {
 
         let scanList = entities.concat([player]);
 
-        if (this.type === 'choso') {
+        if (this.type === 'naoya') {
+            // Projection Sorcery Frame Dash
+            playSound(580, 'sine', 0.2, 0.15, 800);
+            let dashDist = 280 * this.facing;
+            
+            // Drop structured animation capture frame trail objects along path
+            for (let i = 1; i <= 4; i++) {
+                projectionFrames.push({
+                    x: this.x + (dashDist * (i / 4)),
+                    y: this.y,
+                    w: this.w,
+                    h: this.h,
+                    life: 24, // 24 frames lifespan
+                    facing: this.facing
+                });
+            }
+            this.x += dashDist;
+            shake = 8;
+
+            // Damage anyone caught in line of frames
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 200) {
+                    t.takeDmg(12, this);
+                    t.vx = this.facing * 8;
+                }
+            });
+        }
+        else if (this.type === 'choso') {
             this.bloodHardening = Math.min(4, this.bloodHardening + 1);
             playSound(300, 'sawtooth', 0.2, 0.15);
             spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#6f1d1b", 12, 'spark');
@@ -291,13 +378,12 @@ class Entity {
             playSound(600, 'sawtooth', 0.15, 0.1);
         }
         else if (this.type === 'gojo') {
-            // Lapse Blue vacuum pull effect
             playSound(220, 'sine', 0.3, 0.2, 400);
             let targetX = this.x + (this.facing * 150);
             spawnVisualEffect(targetX, this.y + 20, "#48cae4", 15, 'spark');
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - targetX) < 160) {
-                    t.x = targetX; // Snap towards center of blue pull
+                    t.x = targetX; 
                     t.takeDmg(10, this);
                 }
             });
@@ -316,7 +402,26 @@ class Entity {
 
         let scanList = entities.concat([player]);
 
-        if (this.type === 'choso') {
+        if (this.type === 'naoya') {
+            // Freeze Frame Strike - Freezes opponent into a literal 24fps flat canvas
+            playSound(700, 'square', 0.2, 0.2, 200);
+            let range = 75;
+            let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+
+            // Instantly leave a casting marker frame behind
+            projectionFrames.push({ x: this.x, y: this.y, w: this.w, h: this.h, life: 16, facing: this.facing, specialColor: "#9a8cff" });
+
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this) {
+                    if (t.x + t.w > hitX && t.x < hitX + range) {
+                        t.projectionFreezeTimer = 110; // Frozen by 24fps rule
+                        t.takeDmg(18, this);
+                        spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#adacc7", 20, 'shatter');
+                    }
+                }
+            });
+        }
+        else if (this.type === 'choso') {
             shake = 15; playSound(80, 'sawtooth', 0.4, 0.2);
             spatialFractures.push({ y: this.y + 25, life: 25, owner: this, col: "#9b2226" });
             scanList.forEach(t => {
@@ -340,7 +445,6 @@ class Entity {
             playSound(80, 'sawtooth', 0.6, 0.3); shake = 15;
         }
         else if (this.type === 'gojo') {
-            // Reversal Red blast explosion
             playSound(350, 'sawtooth', 0.3, 0.25, 100);
             let targetX = this.x + (this.facing * 100);
             spawnVisualEffect(targetX, this.y + 20, "#ff0055", 25, 'shatter');
@@ -369,7 +473,13 @@ class Entity {
 
         if (!scanTarget) return;
 
-        scanTarget.takeDmg(35, this);
+        let bfDmg = 35;
+        if (!this.isBot) {
+            if (equippedItem === "ring") bfDmg *= 1.30;
+            if (equippedItem === "dagger") bfDmg *= 1.45;
+        }
+
+        scanTarget.takeDmg(bfDmg, this);
         scanTarget.vx = this.facing * 20; 
         this.cooldowns.blackFlash = 120;
         
@@ -415,7 +525,12 @@ class Entity {
             kills++;
         }
 
-        this.ult = Math.min(100, this.ult + amt * 0.8);
+        if (this.isPassiveDummy) {
+            player.ult = Math.min(100, player.ult + amt * 1.2);
+        } else {
+            this.ult = Math.min(100, this.ult + amt * 0.8);
+        }
+
         spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ff0044", 8, 'spark');
 
         if (this.hp <= 0) {
@@ -428,9 +543,10 @@ class Entity {
     respawn() {
         this.dead = false; this.hp = this.maxHp; this.ult = 0;
         this.rikaAwakened = false;
-        this.x = Math.random() * 2600 + 300;
+        this.x = this.isPassiveDummy ? player.x + (player.facing * -200) : Math.random() * 2600 + 300;
         this.y = GROUND - this.h;
         this.stunTimer = 0;
+        this.projectionFreezeTimer = 0;
     }
 
     draw() {
@@ -439,7 +555,23 @@ class Entity {
 
         let isFrozen = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
 
-        if (this.isMahoraga) {
+        // Render flattening 24-frame canvas check
+        if (this.projectionFreezeTimer > 0) {
+            ctx.fillStyle = "rgba(173, 172, 199, 0.85)";
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+            // Draw flattened frame cell boundary matrix look
+            ctx.fillRect(this.x - camX + 5, this.y, this.w - 10, this.h);
+            ctx.strokeRect(this.x - camX + 5, this.y, this.w - 10, this.h);
+            
+            ctx.fillStyle = "#000"; ctx.font = "9px monospace";
+            ctx.fillText("24 FPS", this.x - camX, this.y + this.h/2);
+        } 
+        else if (this.isPassiveDummy) {
+            ctx.fillStyle = "#e63946";
+            ctx.fillRect(this.x - camX, this.y, this.w, this.h);
+            ctx.fillStyle = "#ffffff"; ctx.font = "11px monospace";
+            ctx.fillText("TRAINING DUMMY", this.x - camX - 15, this.y - 22);
+        } else if (this.isMahoraga) {
             ctx.fillStyle = "#f4f1de"; ctx.fillRect(this.x - camX, this.y, this.w, this.h);
             ctx.strokeStyle = "#e07a5f"; ctx.lineWidth = 5;
             ctx.beginPath(); ctx.arc(this.x - camX + this.w/2, this.y - 20, 25, 0, Math.PI*2); ctx.stroke();
@@ -448,7 +580,13 @@ class Entity {
             ctx.fillRect(this.x - camX, this.y, this.w, this.h);
         }
 
-        // Yuta's Rika Manifestation Layout
+        if (!this.isBot && equippedItem !== "none" && this.projectionFreezeTimer <= 0) {
+            ctx.fillStyle = ITEMS[equippedItem].col;
+            ctx.beginPath();
+            ctx.arc(this.x - camX + (this.facing === 1 ? this.w : 0), this.y + this.h/2, 6, 0, Math.PI*2);
+            ctx.fill();
+        }
+
         if (this.type === 'yuta' && this.rikaAwakened) {
             ctx.fillStyle = "rgba(40, 20, 70, 0.85)";
             let rikaX = this.facing === 1 ? this.x - camX - 60 : this.x - camX + this.w + 10;
@@ -456,7 +594,6 @@ class Entity {
             ctx.fillStyle = "#ff0055"; ctx.fillRect(rikaX + (this.facing === 1 ? 50 : 15), this.y - 30, 12, 12);
         }
 
-        // Unlimited Void overlay tint color effect
         if (isFrozen) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
             ctx.fillRect(this.x - camX, this.y, this.w, this.h);
@@ -468,15 +605,15 @@ class Entity {
         
         if (this.bloodHardening > 0) { ctx.strokeStyle = "#ff0000"; ctx.lineWidth = this.bloodHardening * 2; ctx.strokeRect(this.x-camX, this.y, this.w, this.h); }
 
-        // Life Indicators interface
         let bW = this.w + 16; let bX = this.x - camX - 8;
         ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(bX, this.y - 12, bW, 4);
-        ctx.fillStyle = this.isBot ? "#ff4d6d" : "#00f5d4";
+        ctx.fillStyle = (this.isBot || this.isPassiveDummy) ? "#ff4d6d" : "#00f5d4";
         ctx.fillRect(bX, this.y - 12, bW * (this.hp / this.maxHp), 4);
 
-        // Name Tag rendering above player tracking box
-        ctx.fillStyle = "#ffffff"; ctx.font = "10px monospace";
-        ctx.fillText(this.isBot ? `${CHARS[this.type].name} (AI)` : "YOU", this.x - camX, this.y - 18);
+        if(!this.isPassiveDummy) {
+            ctx.fillStyle = "#ffffff"; ctx.font = "10px monospace";
+            ctx.fillText(this.isBot ? `${CHARS[this.type].name} (AI)` : "YOU", this.x - camX, this.y - 18);
+        }
 
         ctx.restore();
     }
@@ -500,7 +637,14 @@ function update() {
     if (!player.dead) player.update();
     entities.forEach(e => e.update());
 
-    // Nails tracker
+    // Update active projection capture frame trails
+    for (let i = projectionFrames.length - 1; i >= 0; i--) {
+        projectionFrames[i].life--;
+        if (projectionFrames[i].life <= 0) {
+            projectionFrames.splice(i, 1);
+        }
+    }
+
     for (let i = projectNails.length - 1; i >= 0; i--) {
         let n = projectNails[i]; n.x += n.vx;
         let scanList = entities.concat([player]);
@@ -519,13 +663,11 @@ function update() {
         if (spatialFractures[i].life <= 0) spatialFractures.splice(i, 1);
     }
 
-    // Active domain systems tick
     if (activeDomain) {
         activeDomain.timer--;
         if (globalFrames % 20 === 0) {
             let targets = entities.concat([player]).filter(t => t && !t.dead && t !== activeDomain.owner);
             targets.forEach(t => {
-                // Unlimited Void deals ticking psychic impact damage alongside the hard freeze frames
                 t.takeDmg(activeDomain.type === 'gojo' ? 1.5 : 2.5, activeDomain.owner);
             });
         }
@@ -545,10 +687,8 @@ function draw() {
     ctx.save();
     if (shake > 0) { ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.88; }
 
-    // Dynamic environmental domain background profile shifts
     if (activeDomain && activeDomain.type === 'gojo') {
         ctx.fillStyle = "#02020a"; ctx.fillRect(0, 0, W, H);
-        // Infinite stars rendering decoration layer for Unlimited Void
         ctx.fillStyle = "#ffffff";
         for (let i = 0; i < 30; i++) {
             let starX = (Math.sin(i + globalFrames * 0.01) * 0.5 + 0.5) * W;
@@ -570,6 +710,19 @@ function draw() {
 
     ctx.fillStyle = "#16171e"; ctx.fillRect(0, GROUND, W, H - GROUND);
     ctx.fillStyle = "#66fcf1"; ctx.fillRect(0, GROUND, W, 4); 
+
+    // Render Projection Sorcery structural layout frames
+    projectionFrames.forEach(f => {
+        ctx.strokeStyle = f.specialColor || "rgba(173, 172, 199, 0.4)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(f.x - camX, f.y, f.w, f.h);
+        
+        // Draw cross lines to resemble film strips/cells
+        ctx.beginPath();
+        ctx.moveTo(f.x - camX, f.y); ctx.lineTo(f.x - camX + f.w, f.y + f.h);
+        ctx.moveTo(f.x - camX + f.w, f.y); ctx.lineTo(f.x - camX, f.y + f.h);
+        ctx.stroke();
+    });
 
     entities.forEach(e => e.draw());
     if (!player.dead) player.draw();
@@ -598,9 +751,20 @@ function engineLifecycle() { update(); draw(); requestAnimationFrame(engineLifec
 
 function updateUI() {
     document.getElementById("ui-char").innerText = `SORCERER: ${CHARS[player.type].name.toUpperCase()} ${player.isMahoraga ? '(MAHORAGA)' : ''}`;
+    document.getElementById("ui-item").innerText = `ARTIFACT: ${ITEMS[equippedItem].dName}`;
+    document.getElementById("ui-item").style.color = ITEMS[equippedItem].col;
     document.getElementById("hp-bar").style.width = Math.max(0, (player.hp / player.maxHp)*100) + "%";
     document.getElementById("ui-ult").innerText = `CURSED ENERGY OUTPUT: ${Math.floor(player.ult)}% [G]`;
-    document.getElementById("ui-kills").innerText = kills;
+    
+    if (currentMode === "battle") {
+        document.getElementById("arena-title").innerText = "JUJUTSU BATTLEGROUNDS";
+        document.getElementById("score-label").innerHTML = `EXORCISED CURSES: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">${kills}</span>`;
+    } else {
+        document.getElementById("arena-title").innerText = "JUJUTSU TRAINING ROOM";
+        let dummy = entities.find(e => e.isPassiveDummy);
+        let dummyHpStr = dummy ? `${Math.ceil((dummy.hp / dummy.maxHp) * 100)}% (${Math.ceil(dummy.hp)} HP)` : "N/A";
+        document.getElementById("score-label").innerHTML = `TARGET STATUS: <span style="color:#ff4d6d; font-weight:bold;">${dummyHpStr}</span>`;
+    }
 
     document.getElementById("cd-e").innerText = player.cooldowns.s1 > 0 ? `${Math.ceil(player.cooldowns.s1/60)}s` : "READY";
     document.getElementById("cd-r").innerText = player.cooldowns.s2 > 0 ? `${Math.ceil(player.cooldowns.s2/60)}s` : "READY";
@@ -613,12 +777,56 @@ window.onkeyup = (e) => { keys[e.key.toLowerCase()] = false; };
 window.onmousedown = (e) => { if(e.target.tagName !== "BUTTON") keys['m1'] = true; };
 window.onmouseup = () => keys['m1'] = false;
 
-function showMenu(id) { document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
-function closeMenus() { document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')); }
-function openMenuFromGame() { showMenu('main-menu'); }
+function showMenu(id) { 
+    document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')); 
+    document.getElementById(id).classList.remove('hidden'); 
+}
+
+function closeMenus() { 
+    document.querySelectorAll('.menu').forEach(m => m.classList.add('hidden')); 
+}
+
+function openMenuFromGame() { 
+    showMenu('main-menu'); 
+}
+
+function selectItem(itemKey) {
+    equippedItem = itemKey;
+    playSound(440, 'sine', 0.15, 0.1);
+    showMenu('main-menu');
+}
+
+function startArenaMode(mode) {
+    currentMode = mode;
+    activeDomain = null;
+    entities = [];
+    projectNails = [];
+    spatialFractures = [];
+    projectionFrames = [];
+    
+    player.hp = player.maxHp = 120;
+    player.ult = 0;
+    player.isMahoraga = false;
+    player.rikaAwakened = false;
+    player.w = 40; player.h = 65;
+    player.x = 200; player.y = GROUND - player.h;
+
+    if (mode === "battle") {
+        kills = 0;
+        let rosterKeys = Object.keys(CHARS);
+        for(let i = 0; i < 6; i++) {
+            let randomType = rosterKeys[i % rosterKeys.length];
+            entities.push(new Entity(400 + (i * 350), GROUND - 100, randomType, true, false));
+        }
+    } else if (mode === "training") {
+        entities.push(new Entity(500, GROUND - 100, 'sukuna', true, true));
+    }
+    closeMenus();
+}
 
 function selectChar(type) { 
-    player.type = type; player.maxHp = 120; player.hp = 120; player.isMahoraga = false; player.rikaAwakened = false; player.w = 40; player.h = 65; closeMenus(); 
+    player.type = type; 
+    showMenu('main-menu'); 
 }
 
 const container = document.getElementById("char-list");
@@ -627,15 +835,9 @@ Object.keys(CHARS).forEach(c => {
     b.onclick = () => selectChar(c); container.appendChild(b);
 });
 
-// Initialize simulation tracking entities
 player = new Entity(200, GROUND - 100, 'gojo', false);
-
-// Setup multi-character roster pool for active AI-controlled brawling
-let rosterKeys = Object.keys(CHARS);
-for(let i = 0; i < 6; i++) {
-    let randomType = rosterKeys[i % rosterKeys.length];
-    entities.push(new Entity(400 + (i * 350), GROUND - 100, randomType, true));
-}
+startArenaMode('battle');
+openMenuFromGame(); 
 
 engineLifecycle();
 </script>
