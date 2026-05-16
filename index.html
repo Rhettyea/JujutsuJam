@@ -314,4 +314,1273 @@
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = type;
-            osc.frequency
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            if(slideTo > 0) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        } catch(e){}
+    }
+
+    let canvas, ctx, W, H, GROUND;
+    
+    const CHARS = {
+        yuji:      { col: "#ff758f", name: "Yuji Itadori", hasDomain: true, domain: "Benevolent Shrine", m1: "Divergent Fist", m2: "Dismantle" },
+        gojo:      { col: "#48cae4", name: "Gojo Satoru", hasDomain: true, domain: "Unlimited Void", m1: "Blue Pull", m2: "Red Repel" },
+        sukuna:    { col: "#9b2226", name: "Sukuna", hasDomain: true, domain: "Malevolent Shrine", m1: "Cleave Grid", m2: "Fuga Arrow" },
+        ryu:       { col: "#ff5722", name: "Ryu Ishigori", hasDomain: true, domain: "Iron Solitude", m1: "Sweet Discharge", m2: "Granité Blast" },
+        mahito:    { col: "#a2d2ff", name: "Mahito", hasDomain: true, domain: "Self-Embodiment", m1: "Soul Hack", m2: "Body Repel" },
+        megumi:    { col: "#0f4c5c", name: "Megumi Fushiguro", hasDomain: true, domain: "Chimera Garden", m1: "Divine Dog", m2: "Nue Strike" },
+        yuta:      { col: "#e0e1dd", name: "Yuta Okkotsu", hasDomain: true, domain: "Rika Unleashed", m1: "Copy Slate", m2: "Pure Love Burst" },
+        nanami:    { col: "#ee9b00", name: "Nanami Kento", hasDomain: false, domain: "Collapse Shift", m1: "7:3 Ratio", m2: "Overtime Rush" },
+        nobara:    { col: "#cdb4db", name: "Nobara Kugisaki", hasDomain: false, domain: "Hairpin Requiem", m1: "Resonance Nails", m2: "Hex Collapse" },
+        mechamaru:{ col: "#b5838d", name: "Mechamaru", hasDomain: false, domain: "Alchemical Beam", m1: "Ultradrive Beam", m2: "Drone Explosion" },
+        inumaki:  { col: "#e9d8a6", name: "Inumaki Toge", hasDomain: false, domain: "Cursed Speech", m1: "Don't Move", m2: "Blast Away" }
+    };
+
+    const ITEMS = {
+        none:   { name: "NONE", dName: "NONE", col: "#ffffff" },
+        ring:   { name: "RING", dName: "YUTA'S PURE LOVE RING", col: "#ff00cc" },
+        staff:  { name: "STAFF", dName: "KASHIMO'S ELECTRICAL STAFF", col: "#ffb703" },
+        dagger: { name: "DAGGER", dName: "SLAUGHTER DEVON", col: "#ee2400" }
+    };
+
+    let equippedItem = "none";
+    let entities = [];
+    let particles = [];
+    let projectNails = [];
+    let activeBeams = [];
+    let activeClash = null;
+    let activeDomainClash = null; 
+    let activeCutscene = null; 
+    let impactFrames = []; 
+    let mapDebris = []; 
+    let player;
+    let camX = 0;
+    let shake = 0;
+    let kills = 0;
+    let globalFrames = 0;
+    let activeDomain = null; 
+    let currentMode = "battle"; 
+    let selectedCharacter = "yuji";
+    let keys = {};
+
+    function generateShinjukuMap() {
+        mapDebris = [];
+        for(let i=0; i<30; i++) {
+            mapDebris.push({
+                x: Math.random() * 3500,
+                y: GROUND - (Math.random() * 250 + 20),
+                w: Math.random() * 60 + 30,
+                h: Math.random() * 140 + 40,
+                color: Math.random() > 0.5 ? "#2b2d42" : "#1a1c23"
+            });
+        }
+    }
+
+    function drawCinematicHandSign(ctx, charType, centerX, centerY, scale = 1.0) {
+        let col = CHARS[charType].col;
+        ctx.strokeStyle = col;
+        ctx.fillStyle = col;
+        ctx.lineWidth = Math.max(3, 7 * scale);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        let hRad = 24 * scale;
+        let spine = 50 * scale;
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY - 60 * scale, hRad, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (charType === 'ryu') {
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 10 * scale, centerY - 60 * scale - hRad);
+            ctx.quadraticCurveTo(centerX + 40 * scale, centerY - 60 * scale - hRad - 25 * scale, centerX + 50 * scale, centerY - 60 * scale - hRad + 5 * scale);
+            ctx.quadraticCurveTo(centerX + 20 * scale, centerY - 60 * scale, centerX - 4 * scale, centerY - 60 * scale);
+            ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - 60 * scale + hRad);
+        ctx.lineTo(centerX, centerY - 60 * scale + hRad + spine);
+        ctx.stroke();
+
+        let sY = centerY - 60 * scale + hRad + 8 * scale;
+
+        if (charType === 'gojo') {
+            ctx.beginPath();
+            ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 25 * scale, sY + 15 * scale); ctx.lineTo(centerX + 10 * scale, centerY - 15 * scale);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 25 * scale, sY + 25 * scale); ctx.lineTo(centerX + 6 * scale, centerY - 12 * scale);
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(centerX + 8 * scale, centerY - 14 * scale, 6 * scale, 0, Math.PI*2); ctx.fill();
+        } 
+        else if (charType === 'sukuna' || charType === 'yuji') {
+            ctx.beginPath();
+            ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 35 * scale, sY + 10 * scale); ctx.lineTo(centerX - 2 * scale, centerY - 10 * scale);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 35 * scale, sY + 10 * scale); ctx.lineTo(centerX + 2 * scale, centerY - 10 * scale);
+            ctx.stroke();
+            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(centerX, centerY - 10 * scale, 7 * scale, 0, Math.PI*2); ctx.fill();
+        }
+        else {
+            ctx.beginPath();
+            ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 30 * scale, sY + 20 * scale); ctx.lineTo(centerX - 4 * scale, centerY - 5 * scale);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 30 * scale, sY + 20 * scale); ctx.lineTo(centerX + 4 * scale, centerY - 5 * scale);
+            ctx.stroke();
+        }
+    }
+
+    class Entity {
+        constructor(x, y, type, isBot = false, isPassiveDummy = false) {
+            this.x = x; this.y = y; this.type = type; this.isBot = isBot; this.isPassiveDummy = isPassiveDummy;
+            this.w = 38; this.h = 68;
+            this.vx = 0; this.vy = 0;
+            this.hp = isPassiveDummy ? 1000 : 150; 
+            this.maxHp = this.hp;
+            this.ult = 0;
+            this.facing = 1;
+            this.dead = false;
+            this.cooldowns = { s1: 0, s2: 0, m1: 0, blackFlash: 0 };
+            this.mechamaruPuppets = []; 
+            this.bfWindowTimer = 0; 
+            this.lastHitTarget = null;
+            this.bfChainCount = 0;
+            this.animTimer = Math.random() * 100;
+        }
+
+        respawn() {
+            this.dead = false;
+            this.hp = this.maxHp;
+            this.x = player ? player.x + (Math.random() * 400 - 200) : 400;
+            this.y = GROUND - this.h;
+        }
+
+        takeDmg(amount, attacker) {
+            if (this.dead) return;
+            this.hp -= amount;
+            if (attacker && attacker === player) {
+                player.ult = Math.min(100, player.ult + amount * 0.9);
+            }
+            if (this.hp <= 0) {
+                this.hp = 0;
+                this.dead = true;
+                if (this === player) {
+                    setTimeout(() => { openMenuFromGame(); }, 2000);
+                } else {
+                    kills++;
+                    setTimeout(() => {
+                        if (!this.isPassiveDummy && currentMode === "battle" && entities.length < 5) {
+                            let randType = Object.keys(CHARS)[Math.floor(Math.random() * Object.keys(CHARS).length)];
+                            entities.push(new Entity(player.x + (Math.random() * 700 - 350), GROUND - 100, randType, true));
+                        }
+                    }, 1200);
+                }
+            }
+        }
+
+        update() {
+            if (this.dead) {
+                if (this.isPassiveDummy) this.respawn();
+                return;
+            }
+
+            if (activeCutscene || 
+                (activeClash && (activeClash.p1 === this || activeClash.p2 === this)) || 
+                (activeDomainClash && (activeDomainClash.p1 === this || activeDomainClash.p2 === this))) {
+                this.vx = 0;
+                this.animTimer += 0.02;
+                return;
+            }
+
+            let currentVel = Math.abs(this.vx);
+            this.animTimer += currentVel > 0.5 ? (currentVel * 0.04) : 0.04;
+
+            let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
+            if (isFrozenByGojo) {
+                this.vx = 0;
+                this.vy += 0.65;
+                this.x += this.vx; this.y += this.vy;
+                if (this.y + this.h > GROUND) { this.y = GROUND - this.h; this.vy = 0; }
+                return;
+            }
+
+            this.vy += 0.65;
+            this.vx *= 0.85;
+            this.x += this.vx;
+            this.y += this.vy;
+
+            if (this.y + this.h > GROUND) {
+                this.y = GROUND - this.h;
+                this.vy = 0;
+            }
+
+            if (this.x < 0) this.x = 0;
+            if (this.x > 3500) this.x = 3500;
+
+            Object.keys(this.cooldowns).forEach(k => { if(this.cooldowns[k] > 0) this.cooldowns[k]--; });
+
+            if (this.isPassiveDummy) this.processDummyAI();
+            else if (this.isBot) this.processProximityAI();
+            else this.processInput();
+
+            if (this.type === 'mechamaru' && globalFrames % 90 === 0 && this.mechamaruPuppets.length < 3) {
+                this.mechamaruPuppets.push({ orbitOffset: Math.random() * Math.PI, hp: 20 });
+            }
+
+            if (globalFrames % 8 === 0 && !this.isPassiveDummy) {
+                let auraCol = CHARS[this.type].col;
+                if (activeDomain && activeDomain.owner === this) auraCol = "#ffffff";
+                spawnVisualEffect(this.x + Math.random() * this.w, this.y + Math.random() * this.h, auraCol, 1, 'aura');
+            }
+        }
+
+        processDummyAI() {
+            if (player && !player.dead) {
+                let dist = player.x - this.x;
+                this.facing = dist > 0 ? 1 : -1;
+            }
+        }
+
+        processProximityAI() {
+            let targets = [player].filter(t => t && !t.dead);
+            if (targets.length === 0) return;
+            let target = targets[0];
+            let dist = target.x - this.x;
+            this.facing = dist > 0 ? 1 : -1;
+
+            if (Math.abs(dist) > 180 && this.type === 'ryu') {
+                if (this.cooldowns.s2 === 0) { this.executeTechnique2(); return; }
+            }
+
+            if (Math.abs(dist) > 60) {
+                this.vx = this.facing * 4.5;
+            }
+
+            if (globalFrames % 30 === 0 && Math.random() < 0.6) {
+                let absD = Math.abs(dist);
+                if (absD < 85) {
+                    this.executeBasicStrike();
+                    if (this.bfWindowTimer > 0) this.executeBlackFlashAction();
+                } else if (absD < 280) {
+                    if (Math.random() < 0.5) this.executeTechnique1();
+                    else this.executeTechnique2();
+                }
+                if (this.ult >= 100 && Math.random() < 0.2) this.triggerDomainExpansion();
+            }
+        }
+
+        processInput() {
+            let speedMod = 1.0;
+            if (equippedItem === "staff") speedMod = 1.35; 
+            if (this.type === 'yuji') speedMod *= 1.25; 
+
+            if (keys['a']) { this.vx = -6.5 * speedMod; this.facing = -1; }
+            if (keys['d']) { this.vx = 6.5 * speedMod; this.facing = 1; }
+            if ((keys['w'] || keys[' ']) && this.y >= GROUND - this.h) { this.vy = -15.0; playSound(240, 'triangle', 0.12, 0.06); keys['w'] = false; keys[' '] = false; }
+            if (keys['m1']) {
+                if (activeDomainClash && activeDomainClash.playerInvolved && !activeDomainClash.waitingForCutscene) {
+                    if (activeDomainClash.p1 === player) activeDomainClash.p1Clicks++;
+                    else activeDomainClash.p2Clicks++;
+                    keys['m1'] = false;
+                    playSound(320, 'sawtooth', 0.04, 0.2);
+                } else if (activeClash && activeClash.playerInvolved) {
+                    activeClash.value += 12; 
+                    keys['m1'] = false;
+                    playSound(300, 'sawtooth', 0.05, 0.15);
+                } else {
+                    this.executeBasicStrike();
+                }
+            }
+            if (keys['e']) this.executeTechnique1();
+            if (keys['r']) this.executeTechnique2();
+            if (keys['g'] && this.ult >= 100) this.triggerDomainExpansion();
+            if (keys['0']) this.executeBlackFlashAction();
+        }
+
+        executeBasicStrike() {
+            if (this.cooldowns.m1 > 0) return; 
+            this.cooldowns.m1 = 12;
+            keys['m1'] = false;
+
+            let baseDmg = 8; 
+            let range = 85;
+
+            if (!this.isBot) {
+                if (equippedItem === "ring") baseDmg *= 1.30;       
+                if (equippedItem === "dagger") baseDmg *= 1.45;     
+            }
+
+            let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
+            let hitRegistered = false;
+
+            spawnVisualEffect(this.x + (this.facing * range/2) + this.w/2, this.y + this.h/2, CHARS[this.type].col, 10, 'slash');
+
+            let scanList = entities.concat([player]);
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this) {
+                    if (t.x + t.w > hitX && t.x < hitX + range && t.y + t.h > this.y && t.y < this.y + this.h) {
+                        t.takeDmg(baseDmg, this);
+                        t.vx = this.facing * 7;
+                        hitRegistered = true;
+                        this.bfWindowTimer = 35; 
+                        this.lastHitTarget = t;
+                        triggerImpactFrame(t.x, t.y, CHARS[this.type].col);
+                    }
+                }
+            });
+
+            playSound(hitRegistered ? 150 : 380, 'triangle', 0.1, 0.08);
+        }
+
+        executeTechnique1() {
+            if (this.cooldowns.s1 > 0) return;
+            this.cooldowns.s1 = 45;
+            keys['e'] = false;
+            let scanList = entities.concat([player]);
+
+            if (this.type === 'ryu') {
+                playSound(180, 'sawtooth', 0.2, 0.25);
+                spawnVisualEffect(this.x + (this.facing * 80), this.y + 20, "#ff5722", 12, 'slash');
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 100) {
+                        t.takeDmg(15, this); t.vx = this.facing * 10;
+                        this.bfWindowTimer = 35; this.lastHitTarget = t;
+                        triggerImpactFrame(t.x, t.y, "#ff5722");
+                    }
+                });
+            }
+            else if (this.type === 'nobara') {
+                playSound(400, 'sawtooth', 0.15, 0.2);
+                for(let i = -1; i <= 1; i++) {
+                    if(projectNails.length < 15) {
+                        projectNails.push({ 
+                            x: this.x + (this.facing * 40), y: this.y + 20, vx: this.facing * 14, vy: i * 2, owner: this, alive: true, col: "#cdb4db" 
+                        });
+                    }
+                }
+            }
+            else if (this.type === 'mechamaru') {
+                playSound(120, 'square', 0.5, 0.3);
+                if(activeBeams.length < 6) {
+                    activeBeams.push({
+                        owner: this, x: this.x + (this.facing * 30), y: this.y + 25, vx: this.facing * 16, length: 140, h: 22, col: "#b5838d", dmg: 25, alive: true
+                    });
+                }
+            }
+            else if (this.type === 'mahito') {
+                playSound(220, 'sawtooth', 0.2, 0.25);
+                spawnVisualEffect(this.x + (this.facing * 90), this.y + 20, "#a2d2ff", 15, 'slash');
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 110) {
+                        t.takeDmg(16, this); t.vx = this.facing * 5;
+                        this.bfWindowTimer = 35; this.lastHitTarget = t;
+                        triggerImpactFrame(t.x, t.y, "#a2d2ff");
+                    }
+                });
+            }
+            else if (this.type === 'yuji') {
+                playSound(170, 'sawtooth', 0.28, 0.2);
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 120) {
+                        t.takeDmg(12, this); t.vx = this.facing * 8;
+                        this.bfWindowTimer = 40; this.lastHitTarget = t;
+                        setTimeout(() => {
+                            if (!t.dead) { t.takeDmg(15, this); spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff758f", 12, 'shatter'); }
+                        }, 200);
+                    }
+                });
+            }
+            else if (this.type === 'gojo') {
+                let targetX = this.x + (this.facing * 200);
+                spawnVisualEffect(targetX, this.y + 20, "#48cae4", 15, 'spark');
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - targetX) < 150) {
+                        t.x = this.x + (this.facing * 60); t.takeDmg(14, this);
+                        this.bfWindowTimer = 40; this.lastHitTarget = t;
+                    }
+                });
+            }
+            else {
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 160) {
+                        t.takeDmg(15, this); t.vx = this.facing * 8;
+                        this.bfWindowTimer = 35; this.lastHitTarget = t;
+                    }
+                });
+            }
+        }
+
+        executeTechnique2() {
+            if (this.cooldowns.s2 > 0) return;
+            this.cooldowns.s2 = 80;
+            keys['r'] = false;
+
+            if (this.type === 'ryu') {
+                playSound(90, 'sawtooth', 0.5, 0.4);
+                if(activeBeams.length < 6) {
+                    activeBeams.push({
+                        owner: this, x: this.x + (this.facing * 30), y: this.y + 15, vx: this.facing * 18, length: 180, h: 32, col: "#ff5722", dmg: 35, alive: true
+                    });
+                }
+            }
+            else if (this.type === 'nobara') {
+                playSound(180, 'sine', 0.4, 0.35); shake = 20;
+                let scanList = entities.concat([player]);
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this) {
+                        t.takeDmg(24, this);
+                        spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0055", 15, 'shatter');
+                        triggerImpactFrame(t.x, t.y, "#ff3366");
+                    }
+                });
+            }
+            else if (this.type === 'mechamaru') {
+                playSound(80, 'sawtooth', 0.6, 0.4);
+                let burstRadius = 200;
+                let scanList = entities.concat([player]);
+                spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#b5838d", 20, 'fountain');
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < burstRadius) {
+                        t.takeDmg(28, this); t.vx = this.facing * 16; t.vy = -8;
+                    }
+                });
+                this.mechamaruPuppets = []; 
+            }
+            else if (this.type === 'mahito') {
+                playSound(90, 'square', 0.4, 0.3); shake = 15;
+                let scanList = entities.concat([player]);
+                spawnVisualEffect(this.x, this.y, "#ff758f", 20, 'fountain');
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 220) {
+                        t.takeDmg(26, this); t.vx = this.facing * 14;
+                    }
+                });
+            }
+            else if (this.type === 'sukuna') {
+                playSound(70, 'sawtooth', 0.5, 0.4);
+                if(activeBeams.length < 6) {
+                    activeBeams.push({
+                        owner: this, x: this.x + (this.facing * 30), y: this.y + 20, vx: this.facing * 15, length: 150, h: 26, col: "#ffb703", dmg: 32, alive: true
+                    });
+                }
+            }
+            else {
+                let scanList = entities.concat([player]);
+                scanList.forEach(t => {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 180) { t.takeDmg(18, this); t.vx = this.facing * 10; }
+                });
+            }
+        }
+
+        executeBlackFlashAction() {
+            if (this.bfWindowTimer <= 0 || !this.lastHitTarget || this.lastHitTarget.dead) return;
+            
+            this.bfWindowTimer = 0; 
+            keys['0'] = false;
+            this.bfChainCount++;
+            
+            let target = this.lastHitTarget;
+            let flashDmg = 30 * (1.0 + (this.bfChainCount * 0.3));
+            target.takeDmg(flashDmg, this);
+            
+            target.vx = this.facing * (14 + this.bfChainCount * 3);
+            target.vy = -6;
+            shake = 35;
+
+            playSound(50, 'square', 0.5, 0.45);
+            triggerImpactFrame(target.x, target.y, "#ff0033");
+
+            spawnVisualEffect(target.x + target.w/2, target.y + target.h/2, "#ff0033", 30, 'shatter');
+            spawnVisualEffect(target.x + target.w/2, target.y + target.h/2, "#000000", 15, 'aura');
+
+            let el = document.getElementById("flash-alert");
+            if (this === player && el) {
+                el.innerText = `BLACK FLASH x${this.bfChainCount}`;
+                el.style.opacity = "1";
+                el.style.transform = "translate(-50%, -50%) scale(1.2)";
+                setTimeout(() => { el.style.opacity = "0"; }, 500);
+            }
+        }
+
+        triggerDomainExpansion() {
+            if (this.ult < 100) return;
+            this.ult = 0; keys['g'] = false;
+
+            if (activeDomain && activeDomain.owner !== this && !activeDomainClash) {
+                let p1Temp = activeDomain.owner;
+                activeDomain = null; 
+
+                activeDomainClash = {
+                    p1: p1Temp,
+                    p2: this,
+                    p1Clicks: 0,
+                    p2Clicks: 0,
+                    targetClicks: 35,
+                    playerInvolved: (p1Temp === player || this === player),
+                    waitingForCutscene: true 
+                };
+
+                activeCutscene = {
+                    type: 'clash',
+                    char1: p1Temp.type,
+                    char2: this.type,
+                    timer: 300 
+                };
+
+                shake = 55;
+                playSound(35, 'square', 1.5, 0.6);
+                return;
+            }
+
+            activeCutscene = {
+                type: 'single',
+                char1: this.type,
+                timer: 300,
+                onComplete: () => {
+                    activeDomain = {
+                        owner: this,
+                        type: this.type,
+                        name: CHARS[this.type].domain,
+                        x: this.x + this.w/2,
+                        y: this.y + this.h/2,
+                        radius: 10,
+                        maxRadius: 500,
+                        life: 400 
+                    };
+                    shake = 40;
+                    playSound(60, 'sine', 1.5, 0.5);
+                }
+            };
+
+            shake = 30;
+            playSound(55, 'sine', 1.2, 0.4);
+            
+            let dAlert = document.getElementById("domain-alert");
+            if (dAlert) {
+                let headerText = CHARS[this.type].hasDomain ? "DOMAIN EXPANSION" : "ULTIMATE ACTIVE";
+                dAlert.innerText = `${CHARS[this.type].name.toUpperCase()}\n${headerText}:\n${CHARS[this.type].domain.toUpperCase()}`;
+                dAlert.style.opacity = "1";
+                setTimeout(() => { dAlert.style.opacity = "0"; }, 2500);
+            }
+        }
+
+        drawStickFigure(ctx, cx) {
+            let col = CHARS[this.type].col;
+            ctx.strokeStyle = col;
+            ctx.fillStyle = col;
+            ctx.lineWidth = 4.5;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            let isGrounded = this.y >= GROUND - this.h;
+            let isMoving = Math.abs(this.vx) > 0.75;
+            let isPunching = this.cooldowns.m1 > 0;
+            let isCasting = this.cooldowns.s1 > 20 || this.cooldowns.s2 > 40;
+            let isClashing = (activeClash && (activeClash.p1 === this || activeClash.p2 === this)) || 
+                             (activeDomainClash && (activeDomainClash.p1 === this || activeDomainClash.p2 === this));
+
+            let t = this.animTimer;
+            let lean = 0; 
+            let bounceY = 0;
+
+            if (isMoving && isGrounded) {
+                lean = this.facing * 0.18; 
+                bounceY = Math.sin(t * Math.PI * 2) * 4; 
+            }
+            if (!isGrounded) {
+                lean = this.facing * 0.05;
+                bounceY = 3; 
+            }
+            if (isPunching || isClashing) {
+                lean = this.facing * 0.35; 
+                bounceY = 4;
+            }
+
+            let isGojoFloat = this.type === 'gojo';
+            let isSukunaCrossed = this.type === 'sukuna' && !isPunching && !isCasting && isGrounded && !isClashing;
+
+            if (isGojoFloat) {
+                bounceY = Math.sin(globalFrames * 0.05) * 6 - 12; 
+                isMoving = false; 
+            }
+
+            let headRadius = 8.5;
+            let spineLen = 22;
+            let upperLegLen = 17;
+            let lowerLegLen = 16;
+
+            let originX = this.x + this.w / 2 - cx;
+            let originY = this.y + headRadius + 4 + bounceY;
+
+            let neckX = originX + (lean * 6);
+            let neckY = originY + headRadius;
+
+            let pelvisX = originX - (lean * 4);
+            let pelvisY = neckY + spineLen;
+
+            if (this.type === 'ryu') {
+                ctx.fillStyle = col;
+                ctx.beginPath();
+                ctx.moveTo(originX - (this.facing * 4), originY - headRadius + 2);
+                ctx.quadraticCurveTo(originX + (this.facing * 18), originY - headRadius - 12, originX + (this.facing * 22), originY - headRadius + 2);
+                ctx.quadraticCurveTo(originX + (this.facing * 10), originY - 2, originX - (this.facing * 2), originY - 2);
+                ctx.fill();
+            }
+
+            ctx.beginPath();
+            ctx.arc(originX, originY, headRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(neckX, neckY);
+            ctx.lineTo(pelvisX, pelvisY);
+            ctx.stroke();
+
+            let legDraw = (phaseOffset, sideSign) => {
+                let footTargetX, footTargetY;
+                if (isGrounded && (isMoving || Math.abs(this.vx) > 0.1)) {
+                    let cycle = (t * Math.PI * 2 + phaseOffset) % (Math.PI * 2);
+                    let strideRadius = 16 * this.facing;
+                    footTargetX = pelvisX + Math.cos(cycle) * strideRadius;
+                    if (Math.sin(cycle) > 0) footTargetY = GROUND; 
+                    else footTargetY = GROUND + Math.sin(cycle) * 11;
+                } else if (isClashing) {
+                    footTargetX = pelvisX + (sideSign === 1 ? 22 : -14) * this.facing;
+                    footTargetY = GROUND;
+                } else if (!isGrounded) {
+                    footTargetX = pelvisX + (sideSign * 5) - (this.vx * 1.5);
+                    footTargetY = pelvisY + upperLegLen + lowerLegLen - 4;
+                } else {
+                    footTargetX = pelvisX + sideSign * 8;
+                    footTargetY = GROUND;
+                }
+
+                let dx = footTargetX - pelvisX;
+                let dy = footTargetY - pelvisY;
+                let distanceToFoot = Math.sqrt(dx * dx + dy * dy);
+                let maxReach = (upperLegLen + lowerLegLen) * 0.98;
+                if (distanceToFoot > maxReach) {
+                    footTargetX = pelvisX + (dx / distanceToFoot) * maxReach;
+                    footTargetY = pelvisY + (dy / distanceToFoot) * maxReach;
+                    dx = footTargetX - pelvisX; dy = footTargetY - pelvisY;
+                    distanceToFoot = maxReach;
+                }
+
+                let angleBase = Math.atan2(dy, dx);
+                let cosKnee = (upperLegLen * upperLegLen + distanceToFoot * distanceToFoot - lowerLegLen * lowerLegLen) / (2 * upperLegLen * distanceToFoot);
+                cosKnee = Math.max(-1, Math.min(1, cosKnee));
+                let angleKneeOffset = Math.acos(cosKnee);
+
+                let bendDirection = -this.facing;
+                let kneeX = pelvisX + Math.cos(angleBase + bendDirection * angleKneeOffset) * upperLegLen;
+                let kneeY = pelvisY + Math.sin(angleBase + bendDirection * angleKneeOffset) * upperLegLen;
+
+                ctx.beginPath();
+                ctx.moveTo(pelvisX, pelvisY);
+                ctx.lineTo(kneeX, kneeY);
+                ctx.lineTo(footTargetX, footTargetY);
+                ctx.stroke();
+            };
+
+            legDraw(Math.PI, -1); 
+            legDraw(0, 1);       
+
+            let handL_X, handL_Y, handR_X, handR_Y;
+            let armLen = 16;
+
+            if (isClashing || (this.type === 'ryu' && this.cooldowns.s2 > 50)) {
+                handL_X = neckX + this.facing * (armLen * 1.8);
+                handL_Y = neckY - 2;
+                handR_X = neckX + this.facing * (armLen * 1.6);
+                handR_Y = neckY + 4;
+            }
+            else if (isPunching) {
+                let punchProgress = (12 - this.cooldowns.m1) / 12;
+                let extension = Math.sin(punchProgress * Math.PI) * (armLen * 2.1);
+                handL_X = neckX + this.facing * extension;
+                handL_Y = neckY + 1 - (punchProgress * 5);
+                handR_X = neckX - this.facing * 5;
+                handR_Y = neckY + 11;
+            } 
+            else if (isCasting) {
+                handL_X = neckX + this.facing * (armLen * 1.4);
+                handL_Y = neckY - 4;
+                handR_X = neckX + this.facing * (armLen * 1.3);
+                handR_Y = neckY + 4;
+            } 
+            else if (isSukunaCrossed) {
+                handL_X = neckX + this.facing * 7;
+                handL_Y = neckY + 9;
+                handR_X = neckX - this.facing * 3;
+                handR_Y = neckY + 11;
+            }
+            else if (isMoving && isGrounded) {
+                let swingAngle = Math.sin(t * Math.PI * 2) * 0.65;
+                handL_X = neckX + Math.sin(swingAngle) * armLen - (this.facing * 3);
+                handL_Y = neckY + Math.cos(swingAngle) * armLen + 4;
+                handR_X = neckX - Math.sin(swingAngle) * armLen + (this.facing * 2);
+                handR_Y = neckY - Math.cos(swingAngle) * armLen + 4;
+            }
+            else {
+                handL_X = neckX + this.facing * 5;
+                handL_Y = neckY + 14;
+                handR_X = neckX - this.facing * 6;
+                handR_Y = neckY + 13;
+            }
+
+            ctx.beginPath(); ctx.moveTo(neckX, neckY); ctx.lineTo(handL_X, handL_Y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(neckX, neckY); ctx.lineTo(handR_X, handR_Y); ctx.stroke();
+
+            if (this === player && equippedItem !== "none") {
+                let itemData = ITEMS[equippedItem];
+                ctx.fillStyle = itemData.col; ctx.strokeStyle = itemData.col; ctx.lineWidth = 3;
+                let mainHandX = handL_X; let mainHandY = handL_Y;
+
+                if (equippedItem === "ring") {
+                    ctx.beginPath(); ctx.arc(mainHandX, mainHandY, 4, 0, Math.PI * 2); ctx.fill();
+                } else if (equippedItem === "staff") {
+                    ctx.beginPath(); ctx.moveTo(mainHandX - 4, mainHandY - 24); ctx.lineTo(mainHandX + 4, mainHandY + 24); ctx.stroke();
+                    if (globalFrames % 6 === 0) spawnVisualEffect(mainHandX + (Math.random()*12-6), mainHandY - 12, "#ffb703", 1, 'spark');
+                } else if (equippedItem === "dagger") {
+                    ctx.beginPath(); ctx.moveTo(mainHandX, mainHandY); ctx.lineTo(mainHandX + this.facing * 16, mainHandY - 6); ctx.stroke();
+                }
+            }
+        }
+    }
+
+    function spawnVisualEffect(x, y, color, amount, type) {
+        if (particles.length > 120) return; 
+        let count = Math.min(amount, 15); 
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: type === 'fountain' ? (Math.random() * 8 - 4) : type === 'shatter' ? (Math.random() * 12 - 6) : (Math.random() * 4 - 2),
+                vy: type === 'fountain' ? -(Math.random() * 9 + 3) : type === 'shatter' ? (Math.random() * 12 - 6) : (Math.random() * 4 - 2),
+                life: Math.random() * 20 + 10,
+                maxLife: 25,
+                color: color,
+                type: type
+            });
+        }
+    }
+
+    function triggerImpactFrame(x, y, color) {
+        if (impactFrames.length > 4) return;
+        impactFrames.push({ x: x - camX, y: y, r: 10, maxR: 90, opacity: 1, color: color });
+    }
+
+    function showMenu(id) {
+        let target = document.getElementById(id);
+        let ui = document.getElementById("ui");
+        document.querySelectorAll(".menu").forEach(m => m.classList.add("hidden"));
+        if(target) target.classList.remove("hidden");
+        if(ui) ui.classList.add("hidden");
+    }
+
+    function selectItem(key) {
+        equippedItem = key;
+        let uiItem = document.getElementById("ui-item");
+        if(uiItem) uiItem.innerText = `EQUIPPED: ${ITEMS[key].dName}`;
+        showMenu('main-menu');
+    }
+
+    function openMenuFromGame() {
+        activeDomain = null;
+        activeClash = null;
+        activeDomainClash = null;
+        activeCutscene = null;
+        showMenu('main-menu');
+    }
+
+    function populateRoster() {
+        let container = document.getElementById("char-list");
+        if(!container) return;
+        container.innerHTML = "";
+        Object.keys(CHARS).forEach(k => {
+            let btn = document.createElement("button");
+            btn.className = "tool-btn";
+            btn.style.borderLeft = `5px solid ${CHARS[k].col}`;
+            btn.innerHTML = `${CHARS[k].name.toUpperCase()}<br><span style='font-size:10px; color:#aaa;'>Primary: ${CHARS[k].m1} | Ult: ${CHARS[k].domain}</span>`;
+            btn.onclick = () => { selectedCharacter = k; showMenu('main-menu'); };
+            container.appendChild(btn);
+        });
+    }
+
+    function startArenaMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll(".menu").forEach(m => m.classList.add("hidden"));
+        
+        let ui = document.getElementById("ui");
+        if(ui) ui.classList.remove("hidden");
+
+        let cData = CHARS[selectedCharacter];
+        let uiChar = document.getElementById("ui-char");
+        let uiItem = document.getElementById("ui-item");
+
+        if(uiChar) { uiChar.innerText = `SORCERER: ${cData.name.toUpperCase()}`; uiChar.style.color = cData.col; }
+        if(uiItem) { uiItem.innerText = `EQUIPPED: ${ITEMS[equippedItem].dName}`; }
+
+        kills = 0;
+        entities = [];
+        particles = [];
+        projectNails = [];
+        activeBeams = [];
+        activeClash = null;
+        activeDomainClash = null;
+        activeCutscene = null;
+        impactFrames = [];
+        generateShinjukuMap();
+
+        player = new Entity(300, GROUND - 100, selectedCharacter, false);
+        
+        if (mode === "training") {
+            entities.push(new Entity(600, GROUND - 100, "ryu", true, true));
+        } else {
+            entities.push(new Entity(650, GROUND - 100, "ryu", true));
+            entities.push(new Entity(950, GROUND - 100, "mechamaru", true));
+        }
+
+        initAudio();
+        playSound(300, 'sine', 0.4, 0.1, 150);
+    }
+
+    function step() {
+        globalFrames++;
+
+        if (activeCutscene) {
+            activeCutscene.timer--;
+            ctx.fillStyle = "#05050a";
+            ctx.fillRect(0, 0, W, H);
+
+            if (activeCutscene.type === 'single') {
+                ctx.save();
+                ctx.strokeStyle = "rgba(255,255,255,0.02)"; ctx.lineWidth = 1;
+                for(let i=0; i<W; i+=60) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+                ctx.restore();
+
+                drawCinematicHandSign(ctx, activeCutscene.char1, W / 2, H / 2 + 20, 1.7);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 26px 'Courier New', monospace";
+                ctx.textAlign = "center";
+                ctx.fillText(CHARS[activeCutscene.char1].name.toUpperCase(), W / 2, H / 2 - 170);
+                ctx.fillStyle = CHARS[activeCutscene.char1].col;
+                ctx.fillText(`Casting: ${CHARS[activeCutscene.char1].domain.toUpperCase()}`, W / 2, H / 2 - 130);
+            } 
+            else if (activeCutscene.type === 'clash') {
+                let midX = W / 2;
+
+                ctx.save(); ctx.rect(0, 0, midX, H); ctx.clip();
+                ctx.fillStyle = "rgba(10, 15, 30, 0.2)"; ctx.fillRect(0,0, midX, H);
+                drawCinematicHandSign(ctx, activeCutscene.char1, midX / 2, H / 2 + 30, 1.5);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px 'Courier New', monospace"; ctx.textAlign = "center";
+                ctx.fillText(CHARS[activeCutscene.char1].name.toUpperCase(), midX / 2, H / 2 - 180);
+                ctx.fillStyle = CHARS[activeCutscene.char1].col;
+                ctx.fillText(CHARS[activeCutscene.char1].domain.toUpperCase(), midX / 2, H / 2 - 140);
+                ctx.restore();
+
+                ctx.save(); ctx.rect(midX, 0, midX, H); ctx.clip();
+                ctx.fillStyle = "rgba(30, 10, 15, 0.2)"; ctx.fillRect(midX, 0, midX, H);
+                drawCinematicHandSign(ctx, activeCutscene.char2, midX + (midX / 2), H / 2 + 30, 1.5);
+                ctx.fillStyle = "#ffffff"; ctx.font = "bold 20px 'Courier New', monospace"; ctx.textAlign = "center";
+                ctx.fillText(CHARS[activeCutscene.char2].name.toUpperCase(), midX + (midX / 2), H / 2 - 180);
+                ctx.fillStyle = CHARS[activeCutscene.char2].col;
+                ctx.fillText(CHARS[activeCutscene.char2].domain.toUpperCase(), midX + (midX / 2), H / 2 - 140);
+                ctx.restore();
+
+                ctx.strokeStyle = globalFrames % 2 === 0 ? "#ffffff" : "#ff3366";
+                ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.moveTo(midX, 0); ctx.lineTo(midX, H); ctx.stroke();
+
+                ctx.fillStyle = "#ffffff"; ctx.font = "italic bold 28px 'Courier New', monospace"; ctx.textAlign = "center";
+                ctx.fillText("DOMAIN CLASH INITIALIZING", W / 2, 70);
+            }
+
+            if (activeCutscene.timer <= 0) {
+                if (activeCutscene.type === 'clash' && activeDomainClash) {
+                    activeDomainClash.waitingForCutscene = false; 
+                }
+                if (activeCutscene.onComplete) activeCutscene.onComplete();
+                activeCutscene = null;
+            }
+
+            requestAnimationFrame(step);
+            return; 
+        }
+
+        ctx.clearRect(0, 0, W, H);
+
+        if (shake > 0) {
+            ctx.save();
+            ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
+            shake *= 0.88; if (shake < 0.2) shake = 0;
+        }
+
+        if (player) {
+            let targetCamX = player.x - W / 2;
+            camX += (targetCamX - camX) * 0.08;
+            if (camX < 0) camX = 0; if (camX > 3500 - W) camX = 3500 - W;
+        }
+
+        mapDebris.forEach(b => {
+            ctx.fillStyle = "#0c0d16";
+            ctx.fillRect(b.x - camX, b.y, b.w, b.h);
+            ctx.strokeStyle = "rgba(255,255,255,0.02)"; ctx.strokeRect(b.x - camX, b.y, b.w, b.h);
+        });
+
+        ctx.strokeStyle = (activeDomain || activeDomainClash) ? "#ffffff" : "#ff3366"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
+
+        if (activeDomainClash && !activeDomainClash.waitingForCutscene) {
+            shake = Math.max(shake, 6);
+            
+            if (globalFrames % 8 === 0) {
+                if (activeDomainClash.p1.isBot && Math.random() < 0.55) activeDomainClash.p1Clicks++;
+                if (activeDomainClash.p2.isBot && Math.random() < 0.55) activeDomainClash.p2Clicks++;
+            }
+
+            ctx.fillStyle = "rgba(15, 10, 25, 0.4)";
+            ctx.fillRect(0, 0, W, H);
+            
+            ctx.strokeStyle = globalFrames % 2 === 0 ? CHARS[activeDomainClash.p1.type].col : CHARS[activeDomainClash.p2.type].col;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(W / 2 + Math.sin(globalFrames * 0.4) * 15, 0);
+            ctx.lineTo(W / 2 - Math.sin(globalFrames * 0.4) * 15, GROUND);
+            ctx.stroke();
+
+            let cl = document.getElementById("ui-clash");
+            if (cl && activeDomainClash.playerInvolved) {
+                cl.innerText = `🌌 DOMAIN CLASH!! RACE TO 35 CLICKS! 🌌\nYOU: ${activeDomainClash.p1 === player ? activeDomainClash.p1Clicks : activeDomainClash.p2Clicks} / 35 | ENEMY: ${activeDomainClash.p1 === player ? activeDomainClash.p2Clicks : activeDomainClash.p1Clicks} / 35`;
+            }
+
+            if (activeDomainClash.p1Clicks >= activeDomainClash.targetClicks || activeDomainClash.p2Clicks >= activeDomainClash.targetClicks) {
+                let p1Wins = activeDomainClash.p1Clicks >= activeDomainClash.targetClicks;
+                let winner = p1Wins ? activeDomainClash.p1 : activeDomainClash.p2;
+                let loser = p1Wins ? activeDomainClash.p2 : activeDomainClash.p1;
+
+                shake = 60;
+                playSound(45, 'square', 1.0, 0.5);
+                spawnVisualEffect(W/2 + camX, H/2, CHARS[winner.type].col, 40, 'shatter');
+
+                loser.takeDmg(60, winner);
+                loser.vx = (loser.x > winner.x ? 1 : -1) * 25; loser.vy = -8;
+
+                activeDomain = {
+                    owner: winner,
+                    type: winner.type,
+                    name: CHARS[winner.type].domain,
+                    x: winner.x + winner.w/2,
+                    y: winner.y + winner.h/2,
+                    radius: 300,
+                    maxRadius: 500,
+                    life: 350
+                };
+
+                activeDomainClash = null;
+                if(cl) cl.innerText = "";
+            }
+        }
+
+        if (activeDomain) {
+            activeDomain.life--;
+            if (activeDomain.radius < activeDomain.maxRadius) activeDomain.radius += 18;
+            let grad = ctx.createRadialGradient(activeDomain.x - camX, activeDomain.y, 10, activeDomain.x - camX, activeDomain.y, activeDomain.radius);
+            grad.addColorStop(0, "rgba(5,6,12,0.85)"); grad.addColorStop(0.8, "rgba(10,15,30,0.95)"); grad.addColorStop(1, CHARS[activeDomain.type].col);
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(activeDomain.x - camX, activeDomain.y, activeDomain.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+            if (globalFrames % 12 === 0 && activeDomain.type === 'sukuna') {
+                entities.concat([player]).forEach(t => {
+                    if (t && !t.dead && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
+                        t.takeDmg(3, activeDomain.owner); spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ff0033", 3, 'slash');
+                    }
+                });
+            }
+            if (activeDomain.life <= 0) activeDomain = null;
+        }
+
+        if (!activeClash && !activeDomainClash) {
+            for (let i = 0; i < activeBeams.length; i++) {
+                for (let j = i + 1; j < activeBeams.length; j++) {
+                    let b1 = activeBeams[i]; let b2 = activeBeams[j];
+                    if (b1.alive && b2.alive && b1.owner !== b2.owner) {
+                        let b1_tip = b1.vx > 0 ? b1.x + b1.length : b1.x;
+                        let b2_tip = b2.vx > 0 ? b2.x + b2.length : b2.x;
+                        
+                        if ((b1.vx > 0 && b2.vx < 0 && b1_tip >= b2_tip && b1.x < b2.x) ||
+                            (b1.vx < 0 && b2.vx > 0 && b1_tip <= b2_tip && b1.x > b2.x)) {
+                            
+                            b1.alive = false; b2.alive = false;
+                            activeClash = {
+                                p1: b1.owner, p2: b2.owner,
+                                x: (b1_tip + b2_tip) / 2, y: (b1.y + b2.y) / 2,
+                                col1: b1.col, col2: b2.col,
+                                value: 50, 
+                                playerInvolved: (b1.owner === player || b2.owner === player),
+                                life: 180
+                            };
+                            playSound(100, 'sawtooth', 0.8, 0.4, 40);
+                            shake = 25;
+                        }
+                    }
+                }
+            }
+        } else if (activeClash) {
+            activeClash.life--;
+            shake = Math.max(shake, 5);
+            
+            if (globalFrames % 4 === 0) {
+                if (activeClash.p1.isBot) activeClash.value -= (Math.random() * 2 + 1);
+                if (activeClash.p2.isBot) activeClash.value += (Math.random() * 2 + 1);
+            }
+
+            activeClash.x = (activeClash.p1.x + activeClash.p2.x) / 2 + (activeClash.value - 50) * 3;
+
+            if (globalFrames % 2 === 0) {
+                spawnVisualEffect(activeClash.x, activeClash.y, activeClash.col1, 1, 'spark');
+                spawnVisualEffect(activeClash.x, activeClash.y, activeClash.col2, 1, 'spark');
+            }
+
+            ctx.lineWidth = 20 + Math.sin(globalFrames * 0.4) * 4;
+            
+            ctx.strokeStyle = activeClash.col1;
+            ctx.beginPath();
+            ctx.moveTo(activeClash.p1.x + (activeClash.p1.facing * 20) - camX, activeClash.y);
+            ctx.lineTo(activeClash.x - camX, activeClash.y);
+            ctx.stroke();
+
+            ctx.strokeStyle = activeClash.col2;
+            ctx.beginPath();
+            ctx.moveTo(activeClash.p2.x + (activeClash.p2.facing * 20) - camX, activeClash.y);
+            ctx.lineTo(activeClash.x - camX, activeClash.y);
+            ctx.stroke();
+
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth /= 2.5;
+            ctx.beginPath();
+            ctx.moveTo(activeClash.p1.x + (activeClash.p1.facing * 20) - camX, activeClash.y);
+            ctx.lineTo(activeClash.p2.x + (activeClash.p2.facing * 20) - camX, activeClash.y);
+            ctx.stroke();
+
+            ctx.fillStyle = globalFrames % 2 === 0 ? activeClash.col1 : activeClash.col2;
+            ctx.beginPath();
+            ctx.arc(activeClash.x - camX, activeClash.y, 30 + Math.random() * 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            let cl = document.getElementById("ui-clash");
+            if (activeClash.playerInvolved && cl) {
+                cl.innerText = "💥 CLASH!! MASH STRIKE / BUTTON TO PUSH BACK! 💥";
+
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(W / 2 - 150, 180, 300, 16);
+                ctx.fillStyle = activeClash.p1 === player ? activeClash.col1 : activeClash.col2;
+                ctx.fillRect(W / 2 - 150, 180, activeClash.value * 3, 16);
+            }
+
+            if (activeClash.value <= 5 || activeClash.value >= 95 || activeClash.life <= 0) {
+                let p1Wins = activeClash.value >= 50;
+                let winner = p1Wins ? activeClash.p1 : activeClash.p2;
+                let loser = p1Wins ? activeClash.p2 : activeClash.p1;
+
+                shake = 45;
+                playSound(60, 'square', 0.6, 0.4);
+                spawnVisualEffect(activeClash.x, activeClash.y, winner.type === 'ryu' ? "#ff5722" : "#ffffff", 30, 'shatter');
+                triggerImpactFrame(activeClash.x, activeClash.y, winner.type === 'ryu' ? "#ff5722" : "#ffffff");
+
+                loser.takeDmg(45, winner);
+                loser.vx = winner.facing * 18; loser.vy = -5;
+
+                activeClash = null;
+                if(cl) cl.innerText = "";
+            }
+        }
+
+        activeBeams.forEach(b => {
+            if (!b.alive) return;
+            b.x += b.vx;
+            if (b.length < 900) b.length += 35;
+
+            ctx.fillStyle = b.col;
+            ctx.fillRect(b.vx > 0 ? b.x - camX : b.x - b.length - camX, b.y, b.length, b.h);
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(b.vx > 0 ? b.x - camX : b.x - b.length - camX, b.y + b.h/3, b.length, b.h/3);
+
+            if (globalFrames % 3 === 0) spawnVisualEffect(b.vx > 0 ? b.x + b.length : b.x - b.length, b.y + b.h/2, b.col, 1, 'spark');
+
+            let scanTargets = b.owner === player ? entities : [player].concat(entities).filter(t => t !== b.owner);
+            scanTargets.forEach(t => {
+                if (t && !t.dead) {
+                    let beamMin = b.vx > 0 ? b.x : b.x - b.length;
+                    let beamMax = b.vx > 0 ? b.x + b.length : b.x;
+                    if (t.x + t.w > beamMin && t.x < beamMax && t.y + t.h > b.y && t.y < b.y + b.h) {
+                        t.takeDmg(b.dmg, b.owner);
+                        t.vx = b.vx * 0.4;
+                        b.alive = false;
+                        triggerImpactFrame(t.x, t.y, b.col);
+                        spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, b.col, 10, 'shatter');
+                    }
+                }
+            });
+
+            if (b.x < 0 || b.x > 3500) b.alive = false;
+        });
+        activeBeams = activeBeams.filter(b => b.alive);
+
+        if (player) {
+            player.update();
+            player.drawStickFigure(ctx, camX);
+            
+            let hpBar = document.getElementById("hp-bar");
+            let uiUlt = document.getElementById("ui-ult");
+            let uiKills = document.getElementById("ui-kills");
+            let badgeE = document.getElementById("cd-e"); 
+            let badgeR = document.getElementById("cd-r");
+            let cl = document.getElementById("ui-clash");
+
+            if(hpBar) hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+            if(uiUlt) uiUlt.innerText = `CURSED ENERGY OUTPUT: ${Math.floor(player.ult)}% ${player.ult >= 100 ? '[G - READY]' : ''}`;
+            if(uiKills) uiKills.innerText = kills;
+
+            if(badgeE) {
+                badgeE.innerText = player.cooldowns.s1 > 0 ? `${Math.ceil(player.cooldowns.s1/60)}s` : "READY";
+                badgeE.style.color = player.cooldowns.s1 > 0 ? "#ff3366" : "#45f3ff";
+            }
+            if(badgeR) {
+                badgeR.innerText = player.cooldowns.s2 > 0 ? `${Math.ceil(player.cooldowns.s2/60)}s` : "READY";
+                badgeR.style.color = player.cooldowns.s2 > 0 ? "#ff3366" : "#45f3ff";
+            }
+
+            if (player.bfWindowTimer > 0 && !activeClash && !activeDomainClash) {
+                if(cl) cl.innerText = `⚡ BLACK FLASH TIMING WINDOW OPEN [PRESS '0' OR TAP FLASH] ⚡`;
+            } else if (!activeClash && !activeDomainClash) {
+                if(cl) cl.innerText = "";
+            }
+        }
+
+        entities.forEach(e => {
+            e.update(); e.drawStickFigure(ctx, camX);
+            if (!e.dead) {
+                ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(e.x - camX - 6, e.y - 18, e.w + 12, 5);
+                ctx.fillStyle = CHARS[e.type].col; ctx.fillRect(e.x - camX - 6, e.y - 18, (e.hp / e.maxHp) * (e.w + 12), 5);
+            }
+        });
+
+        projectNails.forEach(n => {
+            if (!n.alive) return;
+            n.x += n.vx; n.y += n.vy;
+            ctx.fillStyle = n.col; ctx.fillRect(n.x - camX, n.y, 8, 3);
+            let targets = n.owner === player ? entities : [player];
+            targets.forEach(t => {
+                if (t && !t.dead && n.alive) {
+                    if (n.x > t.x && n.x < t.x + t.w && n.y > t.y && n.y < t.y + t.h) {
+                        t.takeDmg(10, n.owner); n.alive = false; triggerImpactFrame(t.x, t.y, n.col);
+                    }
+                }
+            });
+            if (Math.abs(n.x - player.x) > 1200) n.alive = false;
+        });
+        projectNails = projectNails.filter(n => n.alive);
+
+        particles.forEach(p => {
+            p.life--; p.x += p.vx; p.y += p.vy; ctx.fillStyle = p.color;
+            let size = p.type === 'shatter' ? Math.max(1, (p.life/p.maxLife)*6) : Math.max(1, (p.life/p.maxLife)*4);
+            ctx.fillRect(p.x - camX, p.y, size, size);
+        });
+        particles = particles.filter(p => p.life > 0);
+
+        impactFrames.forEach(f => {
+            f.r += (f.maxR - f.r) * 0.12; f.opacity -= 0.05;
+            ctx.strokeStyle = f.color; ctx.lineWidth = 3;
+            ctx.save(); ctx.globalAlpha = Math.max(0, f.opacity);
+            ctx.beginPath(); ctx.arc(f.x, f.y + 30, f.r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        });
+        impactFrames = impactFrames.filter(f => f.opacity > 0);
+
+        if (shake > 0) ctx.restore();
+
+        requestAnimationFrame(step);
+    }
+
+    // Pipeline Setup triggered safely via window lifecycle loader
+    window.onload = function() {
+        canvas = document.getElementById("gameCanvas");
+        ctx = canvas.getContext("2d");
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        GROUND = H - 140;
+
+        window.addEventListener('resize', () => {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+            GROUND = H - 140;
+        });
+
+        window.addEventListener('keydown', e => {
+            let k = e.key.toLowerCase();
+            keys[k] = true;
+            if([' ', 'w', 'g', 'e', 'r', '0'].includes(k)) e.preventDefault();
+        });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+        // Touch Input Configurations
+        let joyStart = { x: 0, y: 0 }; let joyActive = false;
+        const dpad = document.getElementById("mobile-dpad");
+        const joystick = document.getElementById("mobile-joystick");
+
+        if(dpad && joystick) {
+            dpad.addEventListener('touchstart', e => { 
+                initAudio();
+                joyActive = true; 
+                let t = e.touches[0]; 
+                joyStart = { x: t.clientX, y: t.clientY }; 
+            }, { passive: true });
+            
+            dpad.addEventListener('touchmove', e => {
+                if (!joyActive) return; 
+                let t = e.touches[0];
+                let dx = t.clientX - joyStart.x; 
+                let dy = t.clientY - joyStart.y;
+                let dist = Math.sqrt(dx*dx + dy*dy); 
+                let maxDist = 45;
+                if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+                joystick.style.transform = `translate(${dx}px, ${dy}px)`;
+                keys['a'] = dx < -15; 
+                keys['d'] = dx > 15;
+            });
+            
+            dpad.addEventListener('touchend', () => { 
+                joyActive = false; 
+                joystick.style.transform = "translate(0px, 0px)"; 
+                keys['a'] = false; 
+                keys['d'] = false; 
+            });
+        }
+
+        function bindMobileButton(id, keyTarget) {
+            let el = document.getElementById(id); if (!el) return;
+            el.addEventListener('touchstart', e => { e.preventDefault(); initAudio(); keys[keyTarget] = true; });
+            el.addEventListener('touchend', e => { e.preventDefault(); keys[keyTarget] = false; });
+        }
+        
+        bindMobileButton("mb-up", "w"); 
+        bindMobileButton("mb-m1", "m1"); 
+        bindMobileButton("mb-e", "e"); 
+        bindMobileButton("mb-r", "r"); 
+        bindMobileButton("mb-g", "g"); 
+        bindMobileButton("mb-bf", "0");
+
+        populateRoster();
+        requestAnimationFrame(step);
+    };
+    </script>
+</body>
+</html>
