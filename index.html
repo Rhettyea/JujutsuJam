@@ -157,6 +157,12 @@
             z-index: 50;
             border-radius: 8px;
         }
+        #boss-timer-ui {
+            font-size: 11px;
+            color: #ffb703;
+            font-weight: bold;
+            margin-top: 4px;
+        }
 
         /* Menus Management */
         .menu {
@@ -289,6 +295,7 @@
                 <span>[R] Tech 2: <span id="cd-r" style="color:#00ffcc; font-weight:bold;">READY</span></span>
             </div>
             <div id="ui-item" style="font-size:11px; font-weight: bold; color:#ffb703; margin-top:6px;">EQUIPPED: NONE</div>
+            <div id="boss-timer-ui">HEIAN BOSS DESCENT: 5:00</div>
         </div>
         <div class="kill-counter">
             <div>EXORCISED: <span id="ui-kills">0</span></div>
@@ -394,7 +401,8 @@
         
         jogo:     { col: "#e65f05", name: "Jogo (Disaster Flame)", isCurse: true, hasDomain: true, domain: "Coffin of the Iron Mountain", m1: "Ember Insect", m2: "Maximum Meteor" },
         hanami:   { col: "#2a9d8f", name: "Hanami (Disaster Plants)", isCurse: true, hasDomain: true, domain: "Ceremonial Sea of Light", m1: "Roots Spike", m2: "Wooden Ball Strike" },
-        dagon:    { col: "#0077b6", name: "Dagon (Disaster Tide)", isCurse: true, hasDomain: true, domain: "Horizon of the Captivating Skiff", m1: "Death Swarm", m2: "Tidal Tidal Wave" }
+        dagon:    { col: "#0077b6", name: "Dagon (Disaster Tide)", isCurse: true, hasDomain: true, domain: "Horizon of the Captivating Skiff", m1: "Death Swarm", m2: "Tidal Tidal Wave" },
+        heian_sukuna: { col: "#5e0000", name: "Heian Sukuna (True Form)", isCurse: true, hasDomain: true, domain: "True Malevolent Shrine", m1: "Kamutoke Lightning Strike", m2: "World Cutting Slash" }
     };
 
     const ITEMS = {
@@ -432,6 +440,10 @@
     let currentMode = "battle"; 
     let selectedCharacter = "yuji";
     let keys = {};
+
+    // Boss System Variables
+    let bossTimer = 300 * 60; // 5 minutes in frames (60fps)
+    let currentBossInstance = null;
 
     function generateShinjukuMap() {
         mapDebris = [];
@@ -477,7 +489,7 @@
             ctx.beginPath();
             ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 30 * scale, sY + 30 * scale); ctx.lineTo(centerX + 10 * scale, centerY - 10 * scale);
             ctx.stroke();
-        } else if (charType === 'sukuna') {
+        } else if (charType === 'sukuna' || charType === 'heian_sukuna') {
             ctx.beginPath();
             ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 40 * scale, sY - 10 * scale); ctx.lineTo(centerX, centerY - 25 * scale);
             ctx.stroke();
@@ -504,10 +516,15 @@
     class Entity {
         constructor(x, y, type, isBot = false, isPassiveDummy = false, teamSide = "neutral") {
             this.x = x; this.y = y; this.type = type; this.isBot = isBot; this.isPassiveDummy = isPassiveDummy;
-            this.w = 34; this.h = 68;
+            this.w = (type === "heian_sukuna") ? 55 : 34; 
+            this.h = (type === "heian_sukuna") ? 100 : 68;
             this.vx = 0; this.vy = 0;
             
-            this.hp = isBot ? 60 : (isPassiveDummy ? 1200 : 250); 
+            if (type === "heian_sukuna") {
+                this.hp = 3500;
+            } else {
+                this.hp = isBot ? 60 : (isPassiveDummy ? 1200 : 250); 
+            }
             this.maxHp = this.hp;
             this.ult = 0;
             this.facing = 1;
@@ -535,7 +552,7 @@
         takeDmg(amount, attacker) {
             if (this.dead) return;
             
-            if (attacker && attacker.isBot) {
+            if (attacker && attacker.isBot && this.type !== "heian_sukuna") {
                 amount = Math.max(1, Math.floor(amount * 0.25));
             }
 
@@ -555,7 +572,6 @@
                 this.hp = 0;
                 this.dead = true;
                 
-                // Explode visually and disappear instantly
                 spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, CHARS[this.type].col, 45, 'explosion', 5);
                 spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ffffff", 20, 'shatter', 6);
                 
@@ -563,10 +579,24 @@
                     kills++;
                 }
 
+                if (this.type === "heian_sukuna") {
+                    currentBossInstance = null;
+                    bossTimer = 300 * 60; // reset 5 min timer
+                    activeCutscene = {
+                        type: 'boss_defeat',
+                        char1: 'heian_sukuna',
+                        timer: 240,
+                        onComplete: () => {
+                            spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ff0033", 60, 'explosion', 8);
+                        }
+                    };
+                    entities = entities.filter(e => e !== this);
+                    return;
+                }
+
                 if (this === player) {
                     setTimeout(() => { openMenuFromGame(); }, 1500);
                 } else {
-                    // Instantly trigger removal and respawn sequences without holding dead references
                     if (this.isPassiveDummy) {
                         this.respawn();
                     } else {
@@ -574,7 +604,7 @@
                         entities = entities.filter(e => e !== this);
                         
                         if (currentMode === "battle" && entities.length < 5) {
-                            let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
+                            let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon" && k !== "heian_sukuna");
                             let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
                             let newAi = new Entity(player ? player.x + (Math.random() * 1200 - 600) : 600, GROUND - 100, randType, true, false, "neutral");
                             entities.push(newAi);
@@ -639,7 +669,11 @@
                     let target = null;
                     let nearestDist = 99999;
 
-                    if (currentMode === "team_raid") {
+                    // FORCE EVERY AI TO AGGRO BOSS IF SPUN
+                    if (currentBossInstance && !currentBossInstance.dead && this !== currentBossInstance) {
+                        target = currentBossInstance;
+                    } 
+                    else if (currentMode === "team_raid") {
                         let scanPool = (this.teamSide === "sorcerer") ? 
                             entities.filter(e => e.teamSide === "curse" && !e.dead) : 
                             [player].concat(entities.filter(e => e.teamSide === "sorcerer" && !e.dead)).filter(p => p && !p.dead);
@@ -660,8 +694,9 @@
                         let dist = target.x - this.x;
                         this.facing = dist > 0 ? 1 : -1;
                         
-                        if (Math.abs(dist) > 90) {
-                            let chaseSpeed = this.jackpotActive || this.type === 'toji' ? 5.0 : 3.0;
+                        let attackRange = (this.type === "heian_sukuna") ? 140 : 90;
+                        if (Math.abs(dist) > attackRange) {
+                            let chaseSpeed = this.jackpotActive || this.type === 'toji' || this.type === "heian_sukuna" ? 5.5 : 3.0;
                             this.vx = this.facing * chaseSpeed; 
                             if (Math.random() < 0.008 && this.y >= GROUND - this.h) this.vy = -11;
                         } else {
@@ -671,9 +706,9 @@
                             }
                         }
 
-                        if (globalFrames % 110 === 0 && Math.abs(dist) < 450) {
-                            if (Math.random() < 0.25) this.executeTechnique1();
-                            else if (Math.random() < 0.15) this.executeTechnique2();
+                        if (globalFrames % 100 === 0 && Math.abs(dist) < 500) {
+                            if (Math.random() < 0.3) this.executeTechnique1();
+                            else if (Math.random() < 0.2) this.executeTechnique2();
                         }
 
                         if (this.ult >= 100 && Math.random() < 0.02) {
@@ -738,9 +773,9 @@
             if (this.cooldowns.m1 > 0) return;
             this.cooldowns.m1 = this.jackpotActive ? 4 : 10; 
 
-            let range = 165;  
-            let baseDmg = this.jackpotActive ? 28 : 15; 
-            let knockbackPower = this.jackpotActive ? 18 : 10;
+            let range = (this.type === "heian_sukuna") ? 220 : 165;  
+            let baseDmg = this.jackpotActive ? 28 : (this.type === "heian_sukuna" ? 40 : 15); 
+            let knockbackPower = this.jackpotActive ? 18 : (this.type === "heian_sukuna" ? 22 : 10);
 
             if (!this.isBot) {
                 if (equippedItem === "cloud") { baseDmg += 20; knockbackPower += 15; }
@@ -758,7 +793,7 @@
             for(let i=0; i<scanList.length; i++) {
                 let t = scanList[i];
                 if (t && !t.dead && t !== this) {
-                    if (currentMode === "team_raid" && this.teamSide === t.teamSide) continue;
+                    if (currentMode === "team_raid" && this.teamSide === t.teamSide && !currentBossInstance) continue;
 
                     if (t.x + t.w > hitX && t.x < hitX + range && t.y + t.h > this.y - 40 && t.y < this.y + this.h + 40) {
                         
@@ -786,7 +821,22 @@
             if (this.cooldowns.s1 > 0) return;
             this.cooldowns.s1 = this.jackpotActive ? 10 : 30; 
             let scanList = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
-            if (currentMode === "team_raid") scanList = scanList.filter(t => t.teamSide !== this.teamSide);
+            if (currentMode === "team_raid" && !currentBossInstance) scanList = scanList.filter(t => t.teamSide !== this.teamSide);
+
+            if (this.type === "heian_sukuna") {
+                // Kamutoke Chain Lightning Strike
+                playSound(500, 'sawtooth', 0.5, 0.4, 900);
+                shake = 30;
+                scanList.forEach(t => {
+                    if (t !== this && Math.abs(t.x - this.x) < 600) {
+                        t.takeDmg(45, this);
+                        t.vy = -6;
+                        triggerImpactFrame(t.x, t.y, "#ffea00");
+                        spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#ffea00", 15, 'shatter', 4);
+                    }
+                });
+                return;
+            }
 
             if (this.type === 'toji') {
                 playSound(90, 'sawtooth', 0.25, 0.4);
@@ -896,7 +946,17 @@
             if (this.cooldowns.s2 > 0) return;
             this.cooldowns.s2 = this.jackpotActive ? 15 : 50; 
             let scanList = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
-            if (currentMode === "team_raid") scanList = scanList.filter(t => t.teamSide !== this.teamSide);
+            if (currentMode === "team_raid" && !currentBossInstance) scanList = scanList.filter(t => t.teamSide !== this.teamSide);
+
+            if (this.type === "heian_sukuna") {
+                // World Cutting Slash Beam
+                playSound(40, 'sawtooth', 0.9, 0.6, 1200);
+                activeBeams.push({
+                    owner: this, x: this.x + (this.facing * 40), y: this.y + 20, vx: this.facing * 26, length: 500, h: 90, col: "#9b2226", dmg: 95, alive: true
+                });
+                shake = 50;
+                return;
+            }
 
             if (this.type === 'toji') {
                 playSound(45, 'square', 0.5, 0.5);
@@ -973,7 +1033,7 @@
 
         executeBlackFlashAction() {
             if (this.bfWindowTimer <= 0 || !this.lastHitTarget || this.lastHitTarget.dead) return;
-            if (this.type === 'toji') return; 
+            if (this.type === 'toji' || this.type === "heian_sukuna") return; 
             
             this.bfWindowTimer = 0; 
             this.bfChainCount++;
@@ -1060,17 +1120,64 @@
         drawRectangleModel(ctx, cx) {
             let col = CHARS[this.type].col;
             
-            if ((activeDomain && activeDomain.owner === this) || this.jackpotActive) {
+            if ((activeDomain && activeDomain.owner === this) || this.jackpotActive || this.type === "heian_sukuna") {
                 ctx.shadowColor = col;
                 ctx.shadowBlur = 24;
             }
 
+            // Draw Base Figure
             ctx.fillStyle = col;
             ctx.fillRect(this.x - cx, this.y, this.w, this.h);
+
+            // SPECIAL DESIGNPAYLOAD: HEIAN SUKUNA ARCHITECTURE
+            if (this.type === "heian_sukuna") {
+                // Tattoos (Body Stripes)
+                ctx.strokeStyle = "#000000";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                // Forehead / Chest Marks
+                ctx.moveTo(this.x - cx + 10, this.y + 15); ctx.lineTo(this.x - cx + this.w - 10, this.y + 15);
+                ctx.moveTo(this.x - cx + 8, this.y + 35); ctx.lineTo(this.x - cx + this.w - 8, this.y + 35);
+                ctx.moveTo(this.x - cx + 15, this.y + 55); ctx.lineTo(this.x - cx + this.w - 15, this.y + 55);
+                ctx.stroke();
+
+                // Glow Eyes (Four crimson sockets)
+                ctx.fillStyle = "#ff0033";
+                ctx.fillRect(this.facing === 1 ? this.x - cx + 38 : this.x - cx + 6, this.y + 6, 5, 4);
+                ctx.fillRect(this.facing === 1 ? this.x - cx + 46 : this.x - cx + 14, this.y + 10, 5, 4);
+                ctx.fillRect(this.facing === 1 ? this.x - cx + 38 : this.x - cx + 6, this.y + 16, 4, 3);
+                ctx.fillRect(this.facing === 1 ? this.x - cx + 46 : this.x - cx + 14, this.y + 20, 4, 3);
+
+                // Four Arms Generation System
+                ctx.fillStyle = "#3a0000";
+                let armLength = 35;
+                let handDirection = this.facing;
+
+                // Upper Left/Right pair
+                ctx.fillRect(handDirection === 1 ? this.x - cx + this.w : this.x - cx - armLength, this.y + 22, armLength, 9);
+                ctx.fillRect(handDirection === 1 ? this.x - cx - 12 : this.x - cx + this.w, this.y + 28, armLength, 9);
+
+                // Lower Left/Right pair
+                ctx.fillRect(handDirection === 1 ? this.x - cx + this.w - 5 : this.x - cx - armLength + 5, this.y + 48, armLength, 9);
+                ctx.fillRect(handDirection === 1 ? this.x - cx - 8 : this.x - cx + this.w - 5, this.y + 56, armLength, 9);
+
+                // KAMUTOKE Weapon payload instantiation
+                ctx.fillStyle = "#ffea00";
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
+                let weaponX = handDirection === 1 ? this.x - cx + this.w + 20 : this.x - cx - 25;
+                let weaponY = this.y + 25;
+                // Draw vajra/lightning structure
+                ctx.fillRect(weaponX - 4, weaponY - 15, 8, 35);
+                ctx.beginPath();
+                ctx.moveTo(weaponX, weaponY - 25); ctx.lineTo(weaponX - 10, weaponY - 15);
+                ctx.lineTo(weaponX + 10, weaponY - 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+            }
+
             ctx.shadowBlur = 0; 
 
             let activeEquip = (this === player) ? equippedItem : "none";
-            if (activeEquip !== "none") {
+            if (activeEquip !== "none" && this.type !== "heian_sukuna") {
                 let itemData = ITEMS[activeEquip];
                 ctx.fillStyle = itemData.col; ctx.strokeStyle = itemData.col; ctx.lineWidth = 3.5;
                 let handX = this.facing === 1 ? this.x + this.w - cx : this.x - cx;
@@ -1137,7 +1244,7 @@
     }
 
     function openMenuFromGame() {
-        activeDomain = null; activeClash = null; activeDomainClash = null; activeCutscene = null;
+        activeDomain = null; activeClash = null; activeDomainClash = null; activeCutscene = null; currentBossInstance = null;
         showMenu('main-menu');
         let ui = document.getElementById("ui");
         if(ui) ui.classList.add("hidden");
@@ -1148,7 +1255,7 @@
         if(!container) return;
         container.innerHTML = "";
         Object.keys(CHARS).forEach(k => {
-            if (k === "jogo" || k === "hanami" || k === "dagon") return;
+            if (k === "jogo" || k === "hanami" || k === "dagon" || k === "heian_sukuna") return;
             let btn = document.createElement("button");
             btn.className = "tool-btn";
             btn.style.borderLeft = `6px solid ${CHARS[k].col}`;
@@ -1170,6 +1277,7 @@
         if(uiChar) { uiChar.innerText = `SORCERER: ${cData.name.toUpperCase()}`; uiChar.style.color = cData.col; }
 
         kills = 0; entities = []; activeBeams = []; activeClash = null; activeDomainClash = null; activeCutscene = null; impactFrames = [];
+        bossTimer = 300 * 60; currentBossInstance = null;
         for(let i=0; i<MAX_PARTICLES; i++) particles[i].life = 0;
 
         generateShinjukuMap();
@@ -1205,6 +1313,33 @@
         globalFrames++;
         if (hitstopFrames > 0) { hitstopFrames--; requestAnimationFrame(step); return; }
 
+        // Process Boss Timer Mechanics
+        if (!activeCutscene && player) {
+            if (bossTimer > 0) {
+                bossTimer--;
+                if (bossTimer === 0 && !currentBossInstance) {
+                    // Trigger Spawn Heian Sukuna
+                    currentBossInstance = new Entity(player.x + 400, GROUND - 150, "heian_sukuna", true, false, "curse");
+                    entities.push(currentBossInstance);
+                    shake = 60;
+                    playSound(60, 'sawtooth', 1.5, 0.7, 10);
+                }
+            }
+            // Update UI timer text representation
+            let displayUiTimer = document.getElementById("boss-timer-ui");
+            if (displayUiTimer) {
+                if (currentBossInstance) {
+                    displayUiTimer.innerText = `⚠️ BOSS STATUS: ACTIVE [HP: ${currentBossInstance.hp}/${currentBossInstance.maxHp}]`;
+                    displayUiTimer.style.color = "#ff0033";
+                } else {
+                    let mins = Math.floor(bossTimer / 3600);
+                    let secs = Math.floor((bossTimer % 3600) / 60);
+                    displayUiTimer.innerText = `HEIAN BOSS DESCENT: ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                    displayUiTimer.style.color = "#ffb703";
+                }
+            }
+        }
+
         if (activeCutscene) {
             activeCutscene.timer--; ctx.fillStyle = "#020306"; ctx.fillRect(0, 0, W, H);
             ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 2;
@@ -1226,6 +1361,18 @@
                 ctx.fillStyle = "#ffffff"; ctx.font = "black 900 24px 'Courier New', monospace"; ctx.textAlign = "center";
                 ctx.fillText("TERRITORIAL INTRUSION", midX, H / 2 - 200);
             }
+            else if (activeCutscene.type === 'boss_defeat') {
+                // Heian Sukuna Farewell Cutscene Draw Logic
+                ctx.fillStyle = "#000000";
+                ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = "#ff0033";
+                ctx.font = "black 900 28px 'Courier New', monospace"; ctx.textAlign = "center";
+                ctx.fillText("HEIAN SUKUNA (TRUE FORM) - EXORCISED", W / 2, H / 2 - 100);
+                
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "italic bold 22px 'Courier New', monospace";
+                ctx.fillText('"I\'ll never forget you until the world ends."', W / 2, H / 2 + 10);
+            }
 
             if (activeCutscene.timer <= 0) {
                 if (activeCutscene.type === 'clash' && activeDomainClash) activeDomainClash.waitingForCutscene = false; 
@@ -1245,6 +1392,12 @@
         if (shake > 0) {
             ctx.translate((Math.random() * 2 - 1) * shake, (Math.random() * 2 - 1) * shake);
             shake *= 0.9; if (shake < 0.5) shake = 0;
+        }
+
+        // Environment Background Tinting during boss raid
+        if (currentBossInstance) {
+            ctx.fillStyle = "rgba(10, 2, 5, 0.4)";
+            ctx.fillRect(0, 0, W, H);
         }
 
         let mapLen = mapDebris.length;
@@ -1300,7 +1453,7 @@
                     let targetList = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
                     targetList.forEach(t => {
                         if (t !== activeDomain.owner && Math.abs(t.x - activeDomain.x) < activeDomain.radius) {
-                            if (currentMode === "team_raid" && t.teamSide === activeDomain.owner.teamSide) return;
+                            if (currentMode === "team_raid" && t.teamSide === activeDomain.owner.teamSide && !currentBossInstance) return;
                             
                             let tickDamage = activeDomain.owner.isBot ? 1 : 6;
                             t.takeDmg(tickDamage, activeDomain.owner);
@@ -1319,7 +1472,7 @@
             let scanTargets = entities.concat(player ? [player] : []).filter(t => t && !t.dead);
             scanTargets.forEach(t => {
                 if (t !== b.owner) {
-                    if (currentMode === "team_raid" && t.teamSide === b.owner.teamSide) return;
+                    if (currentMode === "team_raid" && t.teamSide === b.owner.teamSide && !currentBossInstance) return;
                     let beamMin = b.vx > 0 ? b.x : b.x - b.length; let beamMax = b.vx > 0 ? b.x + b.length : b.x;
                     if (t.x + t.w > beamMin && t.x < beamMax && t.y + t.h > b.y && t.y < b.y + b.h) {
                         
@@ -1343,7 +1496,12 @@
                 e.drawRectangleModel(ctx, camX);
                 ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(e.x - camX - 10, e.y - 20, e.w + 20, 6);
                 ctx.fillStyle = CHARS[e.type].col; ctx.fillRect(e.x - camX - 10, e.y - 20, (e.hp / e.maxHp) * (e.w + 20), 6);
-                if (currentMode === "team_raid") {
+                
+                if (e.type === "heian_sukuna") {
+                    ctx.fillStyle = "#ff0033"; ctx.font = "bold 11px monospace";
+                    ctx.fillText("RAID BOSS: HEIAN SUKUNA", e.x - camX - 10, e.y - 28);
+                }
+                else if (currentMode === "team_raid") {
                     ctx.fillStyle = e.teamSide === "sorcerer" ? "#00ffcc" : "#ff3344"; ctx.font = "bold 9px monospace";
                     ctx.fillText(e.teamSide === "sorcerer" ? "ALLY" : "CURSE", e.x - camX, e.y - 26);
                 }
