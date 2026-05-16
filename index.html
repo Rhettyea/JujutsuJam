@@ -527,8 +527,9 @@
             this.hp = this.maxHp;
             this.vx = 0;
             this.vy = 0;
-            this.x = player ? player.x + (Math.random() * 600 - 300) : 500;
+            this.x = player ? player.x + (Math.random() * 800 - 400) : 500;
             this.y = GROUND - this.h;
+            spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, CHARS[this.type].col, 15, 'fountain', 4);
         }
 
         takeDmg(amount, attacker) {
@@ -554,7 +555,10 @@
                 this.hp = 0;
                 this.dead = true;
                 
-                spawnVisualEffect(this.x, this.y, "#ffffff", 40, 'explosion', 5);
+                // Explode visually and disappear instantly
+                spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, CHARS[this.type].col, 45, 'explosion', 5);
+                spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, "#ffffff", 20, 'shatter', 6);
+                
                 if (attacker === player) {
                     kills++;
                 }
@@ -562,19 +566,28 @@
                 if (this === player) {
                     setTimeout(() => { openMenuFromGame(); }, 1500);
                 } else {
-                    setTimeout(() => {
-                        if (this.isPassiveDummy) {
-                            this.respawn();
-                        } else if (currentMode === "battle") {
-                            // Safely remove dead entities to prevent ghost collision targets
-                            entities = entities.filter(e => e !== this);
-                            if (entities.length < 5) {
-                                let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
-                                let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
-                                entities.push(new Entity(player ? player.x + (Math.random() * 1000 - 500) : 600, GROUND - 100, randType, true, false, "neutral"));
-                            }
+                    // Instantly trigger removal and respawn sequences without holding dead references
+                    if (this.isPassiveDummy) {
+                        this.respawn();
+                    } else {
+                        let preservedSide = this.teamSide;
+                        entities = entities.filter(e => e !== this);
+                        
+                        if (currentMode === "battle" && entities.length < 5) {
+                            let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
+                            let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
+                            let newAi = new Entity(player ? player.x + (Math.random() * 1200 - 600) : 600, GROUND - 100, randType, true, false, "neutral");
+                            entities.push(newAi);
+                        } else if (currentMode === "team_raid") {
+                            let pool = (preservedSide === "sorcerer") ? 
+                                ["gojo", "hakari", "toji", "ryu", "yuta", "megumi", "yuji"] : 
+                                ["sukuna", "mahito", "jogo", "hanami", "dagon"];
+                            let randType = pool[Math.floor(Math.random() * pool.length)];
+                            let spawnX = (preservedSide === "sorcerer") ? player.x - 300 : player.x + 500;
+                            let newAi = new Entity(spawnX + (Math.random() * 200 - 100), GROUND - 100, randType, true, false, preservedSide);
+                            entities.push(newAi);
                         }
-                    }, 400);
+                    }
                 }
             }
         }
@@ -603,12 +616,11 @@
                 return;
             }
 
-            // Fixed the freeze logic tracking checking to prevent AI from infinitely locking up
             let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
             if (isFrozenByGojo) {
                 if (currentMode !== "team_raid" || activeDomain.owner.teamSide !== this.teamSide) {
                     this.vx = 0; 
-                    if (this.vy < 0) this.vy = 0; // Don't float up infinitely
+                    if (this.vy < 0) this.vy = 0; 
                     if (globalFrames % 10 === 0) {
                         spawnVisualEffect(this.x + Math.random()*this.w, this.y + Math.random()*this.h, "#48cae4", 2, 'spark', 2);
                     }
@@ -745,7 +757,6 @@
             let scanList = entities.concat(player ? [player] : []);
             for(let i=0; i<scanList.length; i++) {
                 let t = scanList[i];
-                // Added structural verification checks to stop ghost targets from eating inputs
                 if (t && !t.dead && t !== this) {
                     if (currentMode === "team_raid" && this.teamSide === t.teamSide) continue;
 
@@ -1245,7 +1256,6 @@
         ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
 
         if (activeDomainClash && !activeDomainClash.waitingForCutscene) {
-            // Check if participants are still valid/alive
             if (activeDomainClash.p1.dead || activeDomainClash.p2.dead) {
                 activeDomainClash = null;
                 let cl = document.getElementById("ui-clash");
@@ -1265,7 +1275,10 @@
                     let winner = p1Wins ? activeDomainClash.p1 : activeDomainClash.p2;
                     let loser = p1Wins ? activeDomainClash.p2 : activeDomainClash.p1;
 
-                    loser.takeDmg(120, winner); loser.vx = (loser.x > winner.x ? 1 : -1) * 35; loser.vy = -12;
+                    loser.takeDmg(120, winner); 
+                    if(!loser.dead) {
+                        loser.vx = (loser.x > winner.x ? 1 : -1) * 35; loser.vy = -12;
+                    }
                     activeDomain = { owner: winner, type: winner.type, name: CHARS[winner.type].domain, x: winner.x + winner.w/2, y: winner.y + winner.h/2, radius: 400, maxRadius: 750, life: 450 };
                     if (winner.type === 'hakari') { winner.jackpotActive = true; winner.jackpotTimer = 650; winner.hp = winner.maxHp; }
                     activeDomainClash = null; if(cl) cl.innerText = ""; shake = 50;
@@ -1274,7 +1287,6 @@
         }
 
         if (activeDomain) {
-            // Check if domain owner died unexpectedly to safely dismantle the canvas barrier
             if (activeDomain.owner.dead) {
                 activeDomain = null;
             } else {
@@ -1292,7 +1304,7 @@
                             
                             let tickDamage = activeDomain.owner.isBot ? 1 : 6;
                             t.takeDmg(tickDamage, activeDomain.owner);
-                            spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, CHARS[activeDomain.type].col, 2, 'spark', 3);
+                            if(!t.dead) spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, CHARS[activeDomain.type].col, 2, 'spark', 3);
                         }
                     });
                 }
@@ -1312,7 +1324,7 @@
                     if (t.x + t.w > beamMin && t.x < beamMax && t.y + t.h > b.y && t.y < b.y + b.h) {
                         
                         let finalBeamDmg = b.owner.isBot ? Math.max(1, Math.floor(b.dmg * 0.25)) : b.dmg;
-                        t.takeDmg(finalBeamDmg, b.owner); t.vx = b.vx * 0.6; b.alive = false; if (b.owner === player) hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
+                        t.takeDmg(finalBeamDmg, b.owner); if(!t.dead) t.vx = b.vx * 0.6; b.alive = false; if (b.owner === player) hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
                     }
                 }
             });
