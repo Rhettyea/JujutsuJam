@@ -103,6 +103,7 @@
             opacity: 0;
             transition: opacity 0.1s ease, transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             pointer-events: none;
+            z-index: 50;
         }
         #domain-alert {
             position: absolute;
@@ -121,6 +122,7 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
+            z-index: 50;
         }
 
         /* Menus Management */
@@ -184,6 +186,7 @@
             justify-content: space-between;
             align-items: flex-end;
             pointer-events: none;
+            z-index: 80;
         }
         .touch-zone { pointer-events: auto; }
         #mobile-dpad {
@@ -221,9 +224,7 @@
             font-family: inherit;
         }
         .action-btn:active { background: #ff3366; }
-        .span-2 { grid-column: span 2; }
         
-        /* Hide mobile controls on desktop screen systems */
         @media (min-width: 1025px) {
             #mobile-controls { display: none; }
         }
@@ -245,7 +246,6 @@
             <div id="ui-item" style="font-size:10px; color:#ffb703; margin-top:5px;">EQUIPPED: NONE</div>
         </div>
         <div class="kill-counter">KILLS: <span id="ui-kills">0</span></div>
-        
         <div id="ui-clash"></div>
     </div>
 
@@ -300,150 +300,18 @@
     </div>
 
     <script>
-    // --- AUDIO SYNTH GENERATION ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let audioCtx;
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+    
     function playSound(freq, type, duration, vol=0.1, slideTo=0) {
         try {
+            initAudio();
             if (audioCtx.state === 'suspended') return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            if(slideTo > 0) osc.frequency.exponentialRampToValueAtTime(slideTo, audioCtx.currentTime + duration);
-            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + duration);
-        } catch(e){}
-    }
-
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    let W = canvas.width = window.innerWidth;
-    let H = canvas.height = window.innerHeight;
-    let GROUND = H - 140;
-
-    window.addEventListener('resize', () => {
-        W = canvas.width = window.innerWidth;
-        H = canvas.height = window.innerHeight;
-        GROUND = H - 140;
-    });
-
-    const CHARS = {
-        yuji:      { col: "#ff758f", name: "Yuji Itadori", hasDomain: true, domain: "Benevolent Shrine", m1: "Divergent Fist", m2: "Dismantle" },
-        gojo:      { col: "#48cae4", name: "Gojo Satoru", hasDomain: true, domain: "Unlimited Void", m1: "Blue Pull", m2: "Red Repel" },
-        sukuna:    { col: "#9b2226", name: "Sukuna", hasDomain: true, domain: "Malevolent Shrine", m1: "Cleave Grid", m2: "Fuga Arrow" },
-        ryu:       { col: "#ff5722", name: "Ryu Ishigori", hasDomain: true, domain: "Iron Solitude", m1: "Sweet Discharge", m2: "Granité Blast" },
-        mahito:    { col: "#a2d2ff", name: "Mahito", hasDomain: true, domain: "Self-Embodiment", m1: "Soul Hack", m2: "Body Repel" },
-        megumi:    { col: "#0f4c5c", name: "Megumi Fushiguro", hasDomain: true, domain: "Chimera Garden", m1: "Divine Dog", m2: "Nue Strike" },
-        yuta:      { col: "#e0e1dd", name: "Yuta Okkotsu", hasDomain: true, domain: "Rika Unleashed", m1: "Copy Slate", m2: "Pure Love Burst" },
-        nanami:    { col: "#ee9b00", name: "Nanami Kento", hasDomain: false, domain: "Collapse Shift", m1: "7:3 Ratio", m2: "Overtime Rush" },
-        nobara:    { col: "#cdb4db", name: "Nobara Kugisaki", hasDomain: false, domain: "Hairpin Requiem", m1: "Resonance Nails", m2: "Hex Collapse" },
-        mechamaru:{ col: "#b5838d", name: "Mechamaru", hasDomain: false, domain: "Alchemical Beam", m1: "Ultradrive Beam", m2: "Drone Explosion" },
-        inumaki:  { col: "#e9d8a6", name: "Inumaki Toge", hasDomain: false, domain: "Cursed Speech", m1: "Don't Move", m2: "Blast Away" }
-    };
-
-    const ITEMS = {
-        none:   { name: "NONE", dName: "NONE", col: "#ffffff" },
-        ring:   { name: "RING", dName: "YUTA'S PURE LOVE RING", col: "#ff00cc" },
-        staff:  { name: "STAFF", dName: "KASHIMO'S ELECTRICAL STAFF", col: "#ffb703" },
-        dagger: { name: "DAGGER", dName: "SLAUGHTER DEVON", col: "#ee2400" }
-    };
-
-    let equippedItem = "none";
-    let entities = [];
-    let particles = [];
-    let projectNails = [];
-    let activeBeams = [];
-    let activeClash = null;
-    let activeDomainClash = null; 
-    let activeCutscene = null; 
-    let impactFrames = []; 
-    let mapDebris = []; 
-    let player;
-    let camX = 0;
-    let shake = 0;
-    let kills = 0;
-    let globalFrames = 0;
-    let activeDomain = null; 
-    let currentMode = "battle"; 
-    let selectedCharacter = "yuji";
-    let keys = {};
-
-    function generateShinjukuMap() {
-        mapDebris = [];
-        for(let i=0; i<30; i++) {
-            mapDebris.push({
-                x: Math.random() * 3500,
-                y: GROUND - (Math.random() * 250 + 20),
-                w: Math.random() * 60 + 30,
-                h: Math.random() * 140 + 40,
-                color: Math.random() > 0.5 ? "#2b2d42" : "#1a1c23"
-            });
-        }
-    }
-
-    function drawCinematicHandSign(ctx, charType, centerX, centerY, scale = 1.0) {
-        let col = CHARS[charType].col;
-        ctx.strokeStyle = col;
-        ctx.fillStyle = col;
-        ctx.lineWidth = Math.max(3, 7 * scale);
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-
-        let hRad = 24 * scale;
-        let spine = 50 * scale;
-
-        ctx.beginPath();
-        ctx.arc(centerX, centerY - 60 * scale, hRad, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (charType === 'ryu') {
-            ctx.fillStyle = col;
-            ctx.beginPath();
-            ctx.moveTo(centerX - 10 * scale, centerY - 60 * scale - hRad);
-            ctx.quadraticCurveTo(centerX + 40 * scale, centerY - 60 * scale - hRad - 25 * scale, centerX + 50 * scale, centerY - 60 * scale - hRad + 5 * scale);
-            ctx.quadraticCurveTo(centerX + 20 * scale, centerY - 60 * scale, centerX - 4 * scale, centerY - 60 * scale);
-            ctx.fill();
-        }
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - 60 * scale + hRad);
-        ctx.lineTo(centerX, centerY - 60 * scale + hRad + spine);
-        ctx.stroke();
-
-        let sY = centerY - 60 * scale + hRad + 8 * scale;
-
-        if (charType === 'gojo') {
-            ctx.beginPath();
-            ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 25 * scale, sY + 15 * scale); ctx.lineTo(centerX + 10 * scale, centerY - 15 * scale);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 25 * scale, sY + 25 * scale); ctx.lineTo(centerX + 6 * scale, centerY - 12 * scale);
-            ctx.stroke();
-            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(centerX + 8 * scale, centerY - 14 * scale, 6 * scale, 0, Math.PI*2); ctx.fill();
-        } 
-        else if (charType === 'sukuna' || charType === 'yuji') {
-            ctx.beginPath();
-            ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 35 * scale, sY + 10 * scale); ctx.lineTo(centerX - 2 * scale, centerY - 10 * scale);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 35 * scale, sY + 10 * scale); ctx.lineTo(centerX + 2 * scale, centerY - 10 * scale);
-            ctx.stroke();
-            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(centerX, centerY - 10 * scale, 7 * scale, 0, Math.PI*2); ctx.fill();
-        }
-        else {
-            ctx.beginPath();
-            ctx.moveTo(centerX, sY); ctx.lineTo(centerX - 30 * scale, sY + 20 * scale); ctx.lineTo(centerX - 4 * scale, centerY - 5 * scale);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(centerX, sY); ctx.lineTo(centerX + 30 * scale, sY + 20 * scale); ctx.lineTo(centerX + 4 * scale, centerY - 5 * scale);
-            ctx.stroke();
-        }
-    }
-
-    class Entity {
-        constructor(x, y, type, isBot = false, isPassiveDummy = false) {
-            this.x = x; this.y = y; this.type = type; this.isBot = isBot; this.isPassiveDummy = isPassiveDummy;
-            this.w = 38; this.h = 68;
-            this.vx = 0; this
+            osc.frequency
