@@ -238,6 +238,29 @@
         <button onclick="showMenu('vault-menu')" style="border-color: rgba(255,183,3,0.4); color: #ffb703;">Cursed Tool Vault</button>
         <button onclick="startArenaMode('battle')" style="background: linear-gradient(180deg, #ff0055 0%, #990033 100%); color:#fff; border-color: #ff4d6d; margin-top:20px; font-size:14px; box-shadow: 0 4px 15px rgba(255,0,85,0.3);">ENTER BATTLEFIELD</button>
         <button onclick="startArenaMode('training')" style="background: linear-gradient(180deg, #00ffcc 0%, #009977 100%); color:#000; border-color: #66fcf1; margin-top:5px; font-size:14px;">TRAINING FIELD (PASSIVE DUMMY)</button>
+        <button onclick="showMenu('tutorial-menu')" style="background: rgba(30, 40, 55, 0.6); color: #66fcf1; font-size: 11px; margin-top: 5px;">HOW TO PLAY (TUTORIAL)</button>
+    </div>
+
+    <!-- TUTORIAL INSTRUCTIONS VIEW -->
+    <div id="tutorial-menu" class="menu hidden">
+        <h2 style="color:#45f3ff; margin-top:0; letter-spacing: 1px;">JUJUTSU TUTORIAL</h2>
+        <div style="text-align: left; font-size: 11px; line-height: 1.5; color: #ccc; max-height: 240px; overflow-y: auto; padding-right: 5px; margin-bottom: 15px;">
+            <b style="color: #ffb703;">DESKTOP CONTROLS:</b><br>
+            • [A / D] Move Left / Right<br>
+            • [W / Space] Jump Upward<br>
+            • [M1 / M Key] Basic Punch / Strike Attack<br>
+            • [E] Innate Technique 1 Special<br>
+            • [R] Innate Technique 2 Special<br>
+            • [G] Domain Expansion (At 100% Energy)<br>
+            • [0 Key] Press instantly on impact for Black Flash<br><br>
+            <b style="color: #ff4d6d;">MOBILE OVERLAY:</b><br>
+            • Use the transparent left D-Pad thumbstick to walk.<br>
+            • Tap the action cluster buttons on the right to strike and chain techniques.<br><br>
+            <b style="color: #00ffcc;">BLACK FLASH MECHANIC:</b><br>
+            Landing an attack provides an instantaneous reaction window. Click your attack key or tap the '0' button immediately after landing a strike to execute a devastating Black Flash cascade.
+        </div>
+        <button onclick="startArenaMode('training')" style="background: #00ffcc; color: #000;">LAUNCH TRAINING</button>
+        <button onclick="showMenu('main-menu')" style="background:#1f2833; color: #aaa; border-color: #444;">RETURN</button>
     </div>
 
     <!-- ROSTER MENU -->
@@ -1150,6 +1173,7 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
+// ENTITY RENDERING BLOCK
 function drawEntity(e) {
     let rx = e.x - camX;
     ctx.fillStyle = CHARS[e.type].col;
@@ -1178,4 +1202,3 @@ loop();
 </script>
 </body>
 </html>
-
