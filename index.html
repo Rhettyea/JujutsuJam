@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>JujutsuJam - SUPREME REVAMP ED.</title>
+    <title>JujutsuJam - FREE FOR ALL ED.</title>
     <style>
         * {
             box-sizing: border-box;
@@ -303,7 +303,7 @@
     <div id="main-menu" class="menu">
         <h1>JUJUTSUJAM</h1>
         <div class="menu-row">
-            <button class="tool-btn" onclick="startArenaMode('battle')">START SHINJUKU INCIDENT</button>
+            <button class="tool-btn" onclick="startArenaMode('battle')">START SHINJUKU INCIDENT (FFA)</button>
             <button class="tool-btn" style="border-color:#45f3ff;" onclick="startArenaMode('team_raid')">SORCERERS VS CURSES (5v5)</button>
             <button class="tool-btn" onclick="startArenaMode('training')">TRAINING ARENA</button>
         </div>
@@ -488,7 +488,6 @@
             ctx.strokeRect(centerX - 30*scale, centerY - 20*scale, 60*scale, 40*scale);
             ctx.font = "bold 20px monospace"; ctx.fillText("7 7 7", centerX - 25*scale, centerY + 8*scale);
         } else if (charType === 'toji') {
-            // Render heavy inverted weapon slash silhouette
             ctx.beginPath(); ctx.moveTo(centerX - 40*scale, centerY); ctx.lineTo(centerX + 40*scale, centerY); ctx.stroke();
             ctx.font = "bold 14px monospace"; ctx.fillText("HEAVENLY RESTRICTION", centerX - 70*scale, centerY + 25*scale);
         } else {
@@ -547,9 +546,23 @@
                 this.hp = 0;
                 this.dead = true;
                 
-                // Trigger Prison Realm Sealing Sequence for Boss/Cursed entities or targets
-                let executioner = attacker ? attacker : (player ? player : this);
-                triggerPrisonRealmSeal(this, executioner);
+                // Instantly remove and trigger fast drop processing
+                spawnVisualEffect(this.x, this.y, "#ffffff", 40, 'explosion', 5);
+                if (attacker === player) {
+                    kills++;
+                }
+
+                if (this === player) {
+                    setTimeout(() => { openMenuFromGame(); }, 1500);
+                } else {
+                    setTimeout(() => {
+                        if (!this.isPassiveDummy && currentMode === "battle" && entities.length < 7) {
+                            let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
+                            let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
+                            entities.push(new Entity(player ? player.x + (Math.random() * 1000 - 500) : 600, GROUND - 100, randType, true, false, "neutral"));
+                        }
+                    }, 400);
+                }
             }
         }
 
@@ -582,11 +595,13 @@
 
             let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
             if (isFrozenByGojo) {
-                this.vx = 0; this.vy = 0; 
-                if (globalFrames % 10 === 0) {
-                    spawnVisualEffect(this.x + Math.random()*this.w, this.y + Math.random()*this.h, "#48cae4", 2, 'spark', 2);
+                if (currentMode !== "team_raid" || activeDomain.owner.teamSide !== this.teamSide) {
+                    this.vx = 0; this.vy = 0; 
+                    if (globalFrames % 10 === 0) {
+                        spawnVisualEffect(this.x + Math.random()*this.w, this.y + Math.random()*this.h, "#48cae4", 2, 'spark', 2);
+                    }
+                    return;
                 }
-                return;
             }
 
             this.vy += 0.65;
@@ -595,16 +610,25 @@
             if (!this.isPassiveDummy) {
                 if (this.isBot) {
                     let target = null;
+                    let nearestDist = 99999;
+
                     if (currentMode === "team_raid") {
-                        let nearestDist = 99999;
-                        let scanPool = (this.teamSide === "sorcerer") ? entities.filter(e => e.teamSide === "curse" && !e.dead) : [player].concat(entities.filter(e => e.teamSide === "sorcerer" && !e.dead)).filter(p => p && !p.dead);
+                        // Team Raid filters targets based on faction opposition
+                        let scanPool = (this.teamSide === "sorcerer") ? 
+                            entities.filter(e => e.teamSide === "curse" && !e.dead) : 
+                            [player].concat(entities.filter(e => e.teamSide === "sorcerer" && !e.dead)).filter(p => p && !p.dead);
                         
                         scanPool.forEach(p => {
                             let d = Math.abs(p.x - this.x);
                             if (d < nearestDist) { nearestDist = d; target = p; }
                         });
                     } else {
-                        target = (player && !player.dead) ? player : null;
+                        // Battle Royale/FFA Mode scans the entire arena (including you and other AIs)
+                        let ffaPool = [player].concat(entities).filter(p => p && !p.dead && p !== this);
+                        ffaPool.forEach(p => {
+                            let d = Math.abs(p.x - this.x);
+                            if (d < nearestDist) { nearestDist = d; target = p; }
+                        });
                     }
 
                     if (target) {
@@ -689,14 +713,13 @@
             if (this.cooldowns.m1 > 0) return;
             this.cooldowns.m1 = this.jackpotActive ? 4 : 10; 
 
-            // ENHANCED PUNCH HITBOX REGION: Increased range to 165px and height bounds
             let range = 165;  
             let baseDmg = this.jackpotActive ? 28 : 15; 
             let knockbackPower = this.jackpotActive ? 18 : 10;
 
             if (!this.isBot) {
                 if (equippedItem === "cloud") { baseDmg += 20; knockbackPower += 15; }
-                if (equippedItem === "ss_katana") { baseDmg += 25; } // Bypasses scaling defenses
+                if (equippedItem === "ss_katana") { baseDmg += 25; } 
                 if (equippedItem === "ring") baseDmg *= 1.60;       
                 if (equippedItem === "dagger") baseDmg *= 1.80;     
             }
@@ -712,10 +735,8 @@
                 if (t && !t.dead && t !== this) {
                     if (currentMode === "team_raid" && this.teamSide === t.teamSide) continue;
 
-                    // Expanded hit verification boundary
                     if (t.x + t.w > hitX && t.x < hitX + range && t.y + t.h > this.y - 40 && t.y < this.y + this.h + 40) {
                         
-                        // Inverted Spear of Heaven dispersion logic
                         if (!this.isBot && equippedItem === "is_heaven" && activeDomain && activeDomain.owner === t) {
                             activeDomain = null;
                             shake = 40;
@@ -727,7 +748,7 @@
                         hitRegistered = true;
                         this.bfWindowTimer = 50; 
                         this.lastHitTarget = t;
-                        hitstopFrames = this.jackpotActive ? 1 : 3; 
+                        if (this === player) hitstopFrames = this.jackpotActive ? 1 : 3; 
                         shake = this.jackpotActive ? 20 : 12;
                         triggerImpactFrame(t.x, t.y, CHARS[this.type].col);
                     }
@@ -746,7 +767,7 @@
                 playSound(90, 'sawtooth', 0.25, 0.4);
                 this.vx = this.facing * 22;
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - this.x) < 180) {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 180) {
                         t.takeDmg(45, this); t.vx = this.facing * 12;
                         triggerImpactFrame(t.x, t.y, "#4a4e69");
                     }
@@ -759,7 +780,7 @@
                 let dropX = this.x + (this.facing * 120);
                 spawnVisualEffect(dropX, this.y, "#ff00cc", 25, 'shatter', 6);
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - dropX) < 90) {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - dropX) < 90) {
                         t.takeDmg(this.jackpotActive ? 50 : 30, this);
                         t.vx = this.facing * 14;
                     }
@@ -814,14 +835,14 @@
                 let fireX = this.x + (this.facing * 150);
                 spawnVisualEffect(fireX, this.y + 20, "#ff5500", 30, 'fountain', 5);
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - this.x) < 250) { t.takeDmg(32, this); t.vx = this.facing * 12; }
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 250) { t.takeDmg(32, this); t.vx = this.facing * 12; }
                 });
             }
             else if (this.type === 'inumaki') {
                 playSound(100, 'sine', 0.5, 0.5, 20);
                 spawnVisualEffect(this.x + (this.facing * 200), this.y + 20, "#e9d8a6", 40, 'explosion', 8);
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - this.x) < 380) {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 380) {
                         t.takeDmg(40, this); t.vx = this.facing * 25; t.vy = -5;
                     }
                 });
@@ -832,7 +853,7 @@
                 let targetX = this.x + (this.facing * 200);
                 spawnVisualEffect(targetX, GROUND - 40, "#0f4c5c", 25, 'fountain', 5);
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - targetX) < 120) { t.takeDmg(35, this); t.vy = -14; }
+                    if (t && !t.dead && t !== this && Math.abs(t.x - targetX) < 120) { t.takeDmg(35, this); t.vy = -14; }
                 });
             }
             else {
@@ -856,7 +877,7 @@
                 playSound(45, 'square', 0.5, 0.5);
                 this.vy = -14; this.vx = this.facing * 18;
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - this.x) < 220) {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 220) {
                         t.takeDmg(55, this); t.vy = -12;
                     }
                 });
@@ -867,7 +888,7 @@
                 playSound(110, 'sawtooth', 0.4, 0.4);
                 this.vx = this.facing * 25;
                 scanList.forEach(t => {
-                    if (t && !t.dead && Math.abs(t.x - this.x) < 200) {
+                    if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 200) {
                         t.takeDmg(this.jackpotActive ? 65 : 40, this);
                         t.vx = this.facing * 22; t.vy = -6;
                     }
@@ -927,7 +948,7 @@
 
         executeBlackFlashAction() {
             if (this.bfWindowTimer <= 0 || !this.lastHitTarget || this.lastHitTarget.dead) return;
-            if (this.type === 'toji') return; // Heavenly restricted fighters cannot wield black flash energy
+            if (this.type === 'toji') return; 
             
             this.bfWindowTimer = 0; 
             this.bfChainCount++;
@@ -939,8 +960,10 @@
             
             target.vx = this.facing * (16 + this.bfChainCount * 3);
             target.vy = -8;
-            shake = 40;
-            hitstopFrames = 8; 
+            if (this === player) {
+                shake = 40;
+                hitstopFrames = 8; 
+            }
 
             playSound(40, 'square', 0.6, 0.6);
             triggerImpactFrame(target.x, target.y, "#ff0033");
@@ -959,7 +982,6 @@
 
         triggerDomainExpansion() {
             if (this.type === 'toji') {
-                // Instantly refresh all physical ability states instead of a magical domain barrier
                 this.ult = 0; this.cooldowns.s1 = 0; this.cooldowns.s2 = 0;
                 spawnVisualEffect(this.x, this.y, "#4a4e69", 30, 'explosion', 6);
                 return;
@@ -1022,7 +1044,6 @@
             ctx.fillRect(this.x - cx, this.y, this.w, this.h);
             ctx.shadowBlur = 0; 
 
-            // Custom Cursed Tool Mesh Visualizer mappings
             let activeEquip = (this === player) ? equippedItem : "none";
             if (activeEquip !== "none") {
                 let itemData = ITEMS[activeEquip];
@@ -1046,31 +1067,6 @@
                 }
             }
         }
-    }
-
-    // Prison Realm Sealing Orchestration Core
-    function triggerPrisonRealmSeal(victim, killer) {
-        activeCutscene = {
-            type: 'prison_realm',
-            char1: killer.type,
-            char2: victim.type,
-            timer: 160,
-            onComplete: () => {
-                spawnVisualEffect(killer.x, killer.y, "#ffffff", 40, 'explosion', 5);
-                if (victim === player) {
-                    setTimeout(() => { openMenuFromGame(); }, 1500);
-                } else {
-                    kills++;
-                    setTimeout(() => {
-                        if (!victim.isPassiveDummy && currentMode === "battle" && entities.length < 7) {
-                            let keysArr = Object.keys(CHARS).filter(k => k !== "jogo" && k !== "hanami" && k !== "dagon");
-                            let randType = keysArr[Math.floor(Math.random() * keysArr.length)];
-                            entities.push(new Entity(player ? player.x + (Math.random() * 1000 - 500) : 600, GROUND - 100, randType, true));
-                        }
-                    }, 400);
-                }
-            }
-        };
     }
 
     function spawnVisualEffect(x, y, color, amount, type, customSize = 3) {
@@ -1172,6 +1168,7 @@
             entities.push(new Entity(700, GROUND - 100, "sukuna", true, true, "neutral"));
         } 
         else {
+            // Shinjuku Incident (FFA) - Faction defaults to neutral so everyone squares off
             player = new Entity(300, GROUND - 100, selectedCharacter, false, false, "neutral");
             entities.push(new Entity(700, GROUND - 100, "gojo", true, false, "neutral"));
             entities.push(new Entity(1100, GROUND - 100, "sukuna", true, false, "neutral"));
@@ -1204,33 +1201,6 @@
                 drawCinematicHandSign(ctx, activeCutscene.char2, midX + (midX / 2), H / 2 + 30, 1.4);
                 ctx.fillStyle = "#ffffff"; ctx.font = "black 900 24px 'Courier New', monospace"; ctx.textAlign = "center";
                 ctx.fillText("TERRITORIAL INTRUSION", midX, H / 2 - 200);
-            }
-            // PRISON REALM SEAL SELECTION ANIMATION PAYLOAD
-            else if (activeCutscene.type === 'prison_realm') {
-                let centerBoxX = W / 2;
-                let centerBoxY = H / 2;
-                
-                // Draw the sealing Target Object Box
-                ctx.fillStyle = "#1c1d24"; ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 4;
-                ctx.shadowColor = "#ff3366"; ctx.shadowBlur = 30;
-                ctx.fillRect(centerBoxX - 45, centerBoxY - 45, 90, 90);
-                
-                // Draw multiple demonic eye details onto Prison Realm Cube Face
-                ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(centerBoxX, centerBoxY, 12, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.arc(centerBoxX, centerBoxY, 5, 0, Math.PI*2); ctx.fill();
-                ctx.shadowBlur = 0;
-
-                // Draw lines representing binding sealing ropes pulling victims down
-                ctx.strokeStyle = "#4a000e"; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.moveTo(centerBoxX, centerBoxY + 45); ctx.lineTo(centerBoxX, H); ctx.stroke();
-
-                ctx.fillStyle = "#ffffff"; ctx.font = "900 24px 'Courier New', monospace"; ctx.textAlign = "center";
-                ctx.fillText("PRISON REALM: GATEWAY OPEN", centerBoxX, centerBoxY - 140);
-                
-                ctx.fillStyle = CHARS[activeCutscene.char1].col; ctx.font = "bold 14px 'Courier New', monospace";
-                ctx.fillText(`${CHARS[activeCutscene.char1].name.toUpperCase()} SEALS OBJECT...`, centerBoxX, centerBoxY + 110);
-                
-                if (globalFrames % 15 === 0) playSound(180, 'sawtooth', 0.1, 0.3);
             }
 
             if (activeCutscene.timer <= 0) {
@@ -1313,7 +1283,7 @@
                     if (currentMode === "team_raid" && t.teamSide === b.owner.teamSide) return;
                     let beamMin = b.vx > 0 ? b.x : b.x - b.length; let beamMax = b.vx > 0 ? b.x + b.length : b.x;
                     if (t.x + t.w > beamMin && t.x < beamMax && t.y + t.h > b.y && t.y < b.y + b.h) {
-                        t.takeDmg(b.dmg, b.owner); t.vx = b.vx * 0.6; b.alive = false; hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
+                        t.takeDmg(b.dmg, b.owner); t.vx = b.vx * 0.6; b.alive = false; if (b.owner === player) hitstopFrames = 4; triggerImpactFrame(t.x, t.y, b.col);
                     }
                 }
             });
