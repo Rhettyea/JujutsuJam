@@ -51,7 +51,7 @@
         <button onclick="showMenu('char-menu')">Select Sorcerer</button>
         <button onclick="showMenu('vault-menu')" style="border-color: #ffb703; color: #ffb703;">Cursed Tool Vault</button>
         <button onclick="startArenaMode('battle')" style="background:#ff0055; color:#fff; border-color: #fff; margin-top:15px; font-size:14px;">ENTER BATTLEFIELD</button>
-        <button onclick="startArenaMode('training')" style="background:#00ffcc; color:#000; border-color: #fff; margin-top:5px; font-size:14px;">ENTER TRAINING ROOM</button>
+        <button onclick="startArenaMode('training')" style="background:#00ffcc; color:#000; border-color: #fff; margin-top:5px; font-size:14px;">TRAINING FIELD (PASSIVE DUMMY)</button>
     </div>
 
     <!-- ROSTER MENU -->
@@ -121,7 +121,7 @@ let entities = [];
 let particles = [];
 let projectNails = [];
 let spatialFractures = [];
-let projectionFrames = []; // Stores frame trails left behind by Naoya's moves
+let projectionFrames = []; 
 let player;
 let camX = 0;
 let shake = 0;
@@ -148,7 +148,7 @@ class Entity {
         this.rikaAwakened = false;
         this.rikaTimer = 0;
         
-        this.projectionFreezeTimer = 0; // Naoya specific target freeze tracking
+        this.projectionFreezeTimer = 0; 
     }
 
     update() {
@@ -157,7 +157,6 @@ class Entity {
             return;
         }
 
-        // Unlimited Void Freeze check / Normal Stun / Projection Sorcery 24fps Freeze Rule
         let isFrozenByGojo = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
         if (this.stunTimer > 0 || isFrozenByGojo || this.projectionFreezeTimer > 0) {
             if (this.stunTimer > 0 && !isFrozenByGojo) this.stunTimer--;
@@ -207,7 +206,6 @@ class Entity {
         else if (this.isBot) this.processProximityAI();
         else this.processInput();
 
-        // Cosmetic dynamic tool trailing effect
         if (!this.isBot && equippedItem !== "none" && globalFrames % 4 === 0) {
             spawnVisualEffect(this.x + this.w/2, this.y + this.h/2, ITEMS[equippedItem].col, 1, 'spark');
         }
@@ -217,8 +215,9 @@ class Entity {
         if (player && !player.dead) {
             let dist = player.x - this.x;
             this.facing = dist > 0 ? 1 : -1;
-            if (Math.abs(dist) > 90) {
-                this.vx = this.facing * 3.8;
+            // Actively follow player horizontally but do NOT attack or invoke damage triggers
+            if (Math.abs(dist) > 80) {
+                this.vx = this.facing * 4.2;
             }
             if (player.y < this.y - 50 && this.y >= GROUND - this.h && Math.random() < 0.05) {
                 this.vy = -12;
@@ -251,7 +250,7 @@ class Entity {
             this.facing = dist > 0 ? 1 : -1;
 
             if (Math.abs(dist) > 55) {
-                let baseSpd = this.type === 'naoya' ? 6.2 : 4.2; // Naoya is naturally faster
+                let baseSpd = this.type === 'naoya' ? 6.2 : 4.2; 
                 this.vx = this.facing * (this.isMahoraga ? 3.5 : baseSpd);
             }
 
@@ -271,7 +270,7 @@ class Entity {
     processInput() {
         let speedMod = 1.0;
         if (equippedItem === "staff") speedMod = 1.35; 
-        if (this.type === 'naoya') speedMod *= 1.20; // Naoya passive speed advantage
+        if (this.type === 'naoya') speedMod *= 1.20; 
 
         if (keys['a']) { this.vx = (this.isMahoraga ? -4.5 : -5.8) * speedMod; this.facing = -1; }
         if (keys['d']) { this.vx = (this.isMahoraga ? 4.5 : 5.8) * speedMod; this.facing = 1; }
@@ -284,7 +283,7 @@ class Entity {
     }
 
     executeBasicStrike() {
-        if (this.cooldowns.m1 > 0) return;
+        if (this.cooldowns.m1 > 0 || this.isPassiveDummy) return; // Dummies cannot strike
         this.cooldowns.m1 = 15;
 
         let baseDmg = this.isMahoraga ? 18 : 6; 
@@ -317,36 +316,44 @@ class Entity {
     }
 
     executeTechnique1() {
-        if (this.cooldowns.s1 > 0) return;
+        if (this.cooldowns.s1 > 0 || this.isPassiveDummy) return;
         this.cooldowns.s1 = 60;
         keys['e'] = false;
 
         let scanList = entities.concat([player]);
 
         if (this.type === 'naoya') {
-            // Projection Sorcery Frame Dash
             playSound(580, 'sine', 0.2, 0.15, 800);
             let dashDist = 280 * this.facing;
             
-            // Drop structured animation capture frame trail objects along path
             for (let i = 1; i <= 4; i++) {
                 projectionFrames.push({
                     x: this.x + (dashDist * (i / 4)),
                     y: this.y,
                     w: this.w,
                     h: this.h,
-                    life: 24, // 24 frames lifespan
+                    life: 24, 
                     facing: this.facing
                 });
             }
             this.x += dashDist;
             shake = 8;
 
-            // Damage anyone caught in line of frames
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 200) {
                     t.takeDmg(12, this);
                     t.vx = this.facing * 8;
+                }
+            });
+        }
+        else if (this.type === 'sukuna') {
+            // Cleave & Dismantle 
+            playSound(350, 'sawtooth', 0.15, 0.2);
+            spawnVisualEffect(this.x + (this.facing * 100), this.y + 20, "#9b2226", 15, 'slash');
+            scanList.forEach(t => {
+                if (t && !t.dead && t !== this && Math.abs(t.x - this.x) < 160) {
+                    t.takeDmg(14, this);
+                    t.vx = this.facing * 5;
                 }
             });
         }
@@ -396,30 +403,33 @@ class Entity {
     }
 
     executeTechnique2() {
-        if (this.cooldowns.s2 > 0) return;
+        if (this.cooldowns.s2 > 0 || this.isPassiveDummy) return;
         this.cooldowns.s2 = 90;
         keys['r'] = false;
 
         let scanList = entities.concat([player]);
 
         if (this.type === 'naoya') {
-            // Freeze Frame Strike - Freezes opponent into a literal 24fps flat canvas
             playSound(700, 'square', 0.2, 0.2, 200);
             let range = 75;
             let hitX = this.facing === 1 ? this.x + this.w : this.x - range;
 
-            // Instantly leave a casting marker frame behind
             projectionFrames.push({ x: this.x, y: this.y, w: this.w, h: this.h, life: 16, facing: this.facing, specialColor: "#9a8cff" });
 
             scanList.forEach(t => {
                 if (t && !t.dead && t !== this) {
                     if (t.x + t.w > hitX && t.x < hitX + range) {
-                        t.projectionFreezeTimer = 110; // Frozen by 24fps rule
+                        t.projectionFreezeTimer = 110; 
                         t.takeDmg(18, this);
                         spawnVisualEffect(t.x + t.w/2, t.y + t.h/2, "#adacc7", 20, 'shatter');
                     }
                 }
             });
+        }
+        else if (this.type === 'sukuna') {
+            // Fire Arrow (Fuga)
+            playSound(400, 'square', 0.4, 0.25, 150);
+            projectNails.push({ x: this.x + (this.facing * 40), y: this.y + 15, vx: this.facing * 18, owner: this, alive: true, col: "#ff5500" });
         }
         else if (this.type === 'choso') {
             shake = 15; playSound(80, 'sawtooth', 0.4, 0.2);
@@ -463,6 +473,7 @@ class Entity {
     }
 
     executeBlackFlashAction() {
+        if (this.isPassiveDummy) return;
         keys['0'] = false; if (this.cooldowns.blackFlash > 0) return;
         let reach = 90; let hitX = this.facing === 1 ? this.x + this.w : this.x - reach;
         let scanTarget = null;
@@ -491,6 +502,7 @@ class Entity {
     }
 
     triggerDomainExpansion() {
+        if (this.isPassiveDummy) return;
         this.ult = 0;
         
         if (this.type === 'megumi') {
@@ -543,7 +555,7 @@ class Entity {
     respawn() {
         this.dead = false; this.hp = this.maxHp; this.ult = 0;
         this.rikaAwakened = false;
-        this.x = this.isPassiveDummy ? player.x + (player.facing * -200) : Math.random() * 2600 + 300;
+        this.x = this.isPassiveDummy ? player.x + (player.facing * -160) : Math.random() * 2600 + 300;
         this.y = GROUND - this.h;
         this.stunTimer = 0;
         this.projectionFreezeTimer = 0;
@@ -555,11 +567,9 @@ class Entity {
 
         let isFrozen = activeDomain && activeDomain.type === 'gojo' && activeDomain.owner !== this;
 
-        // Render flattening 24-frame canvas check
         if (this.projectionFreezeTimer > 0) {
             ctx.fillStyle = "rgba(173, 172, 199, 0.85)";
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
-            // Draw flattened frame cell boundary matrix look
             ctx.fillRect(this.x - camX + 5, this.y, this.w - 10, this.h);
             ctx.strokeRect(this.x - camX + 5, this.y, this.w - 10, this.h);
             
@@ -567,10 +577,10 @@ class Entity {
             ctx.fillText("24 FPS", this.x - camX, this.y + this.h/2);
         } 
         else if (this.isPassiveDummy) {
-            ctx.fillStyle = "#e63946";
+            ctx.fillStyle = "#ffb703";
             ctx.fillRect(this.x - camX, this.y, this.w, this.h);
             ctx.fillStyle = "#ffffff"; ctx.font = "11px monospace";
-            ctx.fillText("TRAINING DUMMY", this.x - camX - 15, this.y - 22);
+            ctx.fillText("FOLLOWING DUMMY (0 DMG)", this.x - camX - 40, this.y - 22);
         } else if (this.isMahoraga) {
             ctx.fillStyle = "#f4f1de"; ctx.fillRect(this.x - camX, this.y, this.w, this.h);
             ctx.strokeStyle = "#e07a5f"; ctx.lineWidth = 5;
@@ -637,7 +647,6 @@ function update() {
     if (!player.dead) player.update();
     entities.forEach(e => e.update());
 
-    // Update active projection capture frame trails
     for (let i = projectionFrames.length - 1; i >= 0; i--) {
         projectionFrames[i].life--;
         if (projectionFrames[i].life <= 0) {
@@ -711,13 +720,11 @@ function draw() {
     ctx.fillStyle = "#16171e"; ctx.fillRect(0, GROUND, W, H - GROUND);
     ctx.fillStyle = "#66fcf1"; ctx.fillRect(0, GROUND, W, 4); 
 
-    // Render Projection Sorcery structural layout frames
     projectionFrames.forEach(f => {
         ctx.strokeStyle = f.specialColor || "rgba(173, 172, 199, 0.4)";
         ctx.lineWidth = 2;
         ctx.strokeRect(f.x - camX, f.y, f.w, f.h);
         
-        // Draw cross lines to resemble film strips/cells
         ctx.beginPath();
         ctx.moveTo(f.x - camX, f.y); ctx.lineTo(f.x - camX + f.w, f.y + f.h);
         ctx.moveTo(f.x - camX + f.w, f.y); ctx.lineTo(f.x - camX, f.y + f.h);
@@ -760,10 +767,10 @@ function updateUI() {
         document.getElementById("arena-title").innerText = "JUJUTSU BATTLEGROUNDS";
         document.getElementById("score-label").innerHTML = `EXORCISED CURSES: <span id="ui-kills" style="color:#66fcf1; font-weight:bold;">${kills}</span>`;
     } else {
-        document.getElementById("arena-title").innerText = "JUJUTSU TRAINING ROOM";
+        document.getElementById("arena-title").innerText = "JUJUTSU TRAINING GROUND";
         let dummy = entities.find(e => e.isPassiveDummy);
         let dummyHpStr = dummy ? `${Math.ceil((dummy.hp / dummy.maxHp) * 100)}% (${Math.ceil(dummy.hp)} HP)` : "N/A";
-        document.getElementById("score-label").innerHTML = `TARGET STATUS: <span style="color:#ff4d6d; font-weight:bold;">${dummyHpStr}</span>`;
+        document.getElementById("score-label").innerHTML = `TARGET STATUS: <span style="color:#ffb703; font-weight:bold;">${dummyHpStr}</span>`;
     }
 
     document.getElementById("cd-e").innerText = player.cooldowns.s1 > 0 ? `${Math.ceil(player.cooldowns.s1/60)}s` : "READY";
@@ -819,6 +826,7 @@ function startArenaMode(mode) {
             entities.push(new Entity(400 + (i * 350), GROUND - 100, randomType, true, false));
         }
     } else if (mode === "training") {
+        // Spawns a dedicated passive following dummy with high health pool and 0 raw output attack capacity
         entities.push(new Entity(500, GROUND - 100, 'sukuna', true, true));
     }
     closeMenus();
